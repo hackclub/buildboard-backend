@@ -10,6 +10,8 @@ class ProjectBase(BaseModel):
     live_url: str | None = None
     submission_week: int = Field(ge=1)
     paper_url: str | None = None
+    shipped: bool = False
+    review_ids: list[str] | None = None
 
 
 class ProjectCreate(ProjectBase):
@@ -24,10 +26,12 @@ class ProjectUpdate(BaseModel):
     live_url: str | None = None
     submission_week: int | None = Field(default=None, ge=1)
     paper_url: str | None = None
+    shipped: bool | None = None
+    review_ids: list[str] | None = None
 
 
 class ProjectRead(ProjectBase):
-    id: str
+    project_id: str
     user_id: str
     created_at: datetime
     updated_at: datetime

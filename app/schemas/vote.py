@@ -16,7 +16,7 @@ class VoteUpdate(BaseModel):
 
 
 class VoteRead(VoteBase):
-    id: str
+    vote_id: str
     user_id: str
     project_id: str
     timestamp: datetime

@@ -7,6 +7,7 @@ class UserBase(BaseModel):
     last_name: str = Field(min_length=1, max_length=100)
     slack_id: str = Field(min_length=1, max_length=64)
     email: EmailStr
+    is_admin: bool = False
 
 
 class UserCreate(UserBase):
@@ -18,10 +19,11 @@ class UserUpdate(BaseModel):
     last_name: str | None = Field(default=None, max_length=100)
     slack_id: str | None = Field(default=None, max_length=64)
     email: EmailStr | None = None
+    is_admin: bool | None = None
 
 
 class UserRead(UserBase):
-    id: str
+    user_id: str
     created_at: datetime
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)
