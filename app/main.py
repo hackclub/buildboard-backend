@@ -17,4 +17,4 @@ app.include_router(reviews_router)
 
 @app.get("/")
 def root():
-    return {"message": "Accelerate Backend API"}
+    return {"message": "Bro - you lowkey shouldn't be here - go do something, there aren't any security flaws here for you to find"}
