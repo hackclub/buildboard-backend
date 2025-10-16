@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "sqlite:///./app.db"
+    DATABASE_URL: str = "postgresql://user:password@localhost:5432/accelerate"
     MASTER_KEY: str
     
     class Config:

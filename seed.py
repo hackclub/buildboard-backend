@@ -39,7 +39,8 @@ def seed_database():
                 "code_url": "https://github.com/alice/ai-chatbot",
                 "live_url": "https://ai-chatbot-demo.vercel.app",
                 "submission_week": 1,
-                "paper_url": None
+                "paper_url": None,
+                "time_spent": 240
             },
             {
                 "user_id": users[0].user_id,
@@ -49,7 +50,8 @@ def seed_database():
                 "code_url": "https://github.com/alice/weather-dash",
                 "live_url": "https://weather-dash.netlify.app",
                 "submission_week": 2,
-                "paper_url": None
+                "paper_url": None,
+                "time_spent": 180
             },
             {
                 "user_id": users[1].user_id,
@@ -59,7 +61,8 @@ def seed_database():
                 "code_url": "https://github.com/bob/taskmanager",
                 "live_url": "https://taskmanager-pro.app",
                 "submission_week": 1,
-                "paper_url": None
+                "paper_url": None,
+                "time_spent": 360
             },
             {
                 "user_id": users[2].user_id,
@@ -69,7 +72,8 @@ def seed_database():
                 "code_url": "https://github.com/charlie/blockchain-explorer",
                 "live_url": "https://block-explorer.io",
                 "submission_week": 1,
-                "paper_url": "https://example.com/blockchain-paper.pdf"
+                "paper_url": "https://example.com/blockchain-paper.pdf",
+                "time_spent": 480
             },
             {
                 "user_id": users[2].user_id,
@@ -79,7 +83,8 @@ def seed_database():
                 "code_url": "https://github.com/charlie/recipe-finder",
                 "live_url": "https://recipe-finder.app",
                 "submission_week": 2,
-                "paper_url": None
+                "paper_url": None,
+                "time_spent": 120
             },
             {
                 "user_id": users[3].user_id,
@@ -89,7 +94,8 @@ def seed_database():
                 "code_url": "https://github.com/diana/fitness-tracker",
                 "live_url": "https://fitness-track.app",
                 "submission_week": 1,
-                "paper_url": None
+                "paper_url": None,
+                "time_spent": 300
             },
             {
                 "user_id": users[4].user_id,
@@ -99,7 +105,8 @@ def seed_database():
                 "code_url": "https://github.com/eve/music-visualizer",
                 "live_url": "https://music-viz.app",
                 "submission_week": 2,
-                "paper_url": None
+                "paper_url": None,
+                "time_spent": 200
             },
         ]
         

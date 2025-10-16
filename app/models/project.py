@@ -19,6 +19,7 @@ class Project(Base):
     paper_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     shipped: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     review_ids: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    time_spent: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     
