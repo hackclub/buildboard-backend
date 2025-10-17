@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import FastAPI
 from app.api.routers.users import router as users_router
 from app.api.routers.projects import router as projects_router
@@ -18,3 +19,8 @@ app.include_router(reviews_router)
 @app.get("/")
 def root():
     return {"message": "Bro - you lowkey shouldn't be here - go do something, there aren't any security flaws here for you to find"}
+
+
+@app.get("/time")
+def get_current_time():
+    return {"current_time": datetime.now().isoformat()}

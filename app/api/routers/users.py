@@ -1,8 +1,9 @@
 from typing import List
 from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.orm import Session
-from app.api.deps import get_db, verify_auth
+from app.api.deps import get_db, verify_auth, verify_admin
 from app.schemas.user import UserCreate, UserRead, UserUpdate
+from app.schemas.project import ProjectRead
 from app.crud import users as crud
 
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(verify_auth)])
@@ -43,3 +44,16 @@ def update_user(
 def delete_user(user_id: str, db: Session = Depends(get_db)) -> None:
     crud.delete_user(db, user_id)
     return None
+
+
+@router.post("/{user_id}/makeadmin", response_model=UserRead, dependencies=[Depends(verify_admin)])
+def make_admin(user_id: str, db: Session = Depends(get_db)) -> UserRead:
+    return crud.set_user_admin(db, user_id, True)
+
+
+@router.get("/{user_id}/projects", response_model=List[ProjectRead])
+def list_user_projects(user_id: str, db: Session = Depends(get_db)) -> List[ProjectRead]:
+    user = crud.get_user(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user.projects
