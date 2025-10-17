@@ -55,3 +55,14 @@ def delete_user(db: Session, user_id: str) -> None:
         raise HTTPException(status_code=404, detail="User not found")
     db.delete(user)
     db.commit()
+
+
+def set_user_admin(db: Session, user_id: str, is_admin: bool = True) -> User:
+    user = get_user(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.is_admin != is_admin:
+        user.is_admin = is_admin
+        db.commit()
+        db.refresh(user)
+    return user
