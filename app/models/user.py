@@ -14,6 +14,13 @@ class User(Base):
     slack_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    address_line_1: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    address_line_2: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    state: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    post_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    birthday: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     
