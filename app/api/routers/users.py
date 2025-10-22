@@ -57,3 +57,10 @@ def list_user_projects(user_id: str, db: Session = Depends(get_db)) -> List[Proj
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user.projects
+
+
+@router.get("/by-idv-token/{idv_token}", response_model=UserRead | None)
+def get_user_by_idv_token(idv_token: str, db: Session = Depends(get_db)) -> UserRead | None:
+    from app.models.user import User
+    user = db.query(User).filter(User.idv_token == idv_token).first()
+    return user
