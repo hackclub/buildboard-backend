@@ -4,8 +4,8 @@ from datetime import datetime
 
 dotenv.load_dotenv()
 
-BASE_URL = "https://y08gko88kskgs08kcc80c040.a.selfhosted.hackclub.com/"
-API_KEY = "themasterofkeys"
+BASE_URL = dotenv.get_key("BASE_URL") or "http://localhost:45000"
+API_KEY = dotenv.get_key("TEST_API_KEY")
 HEADERS = {"api-key": API_KEY}
 
 def create_test_user():
