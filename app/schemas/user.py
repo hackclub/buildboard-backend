@@ -11,7 +11,13 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    pass
+    address_line_1: str | None = None
+    address_line_2: str | None = None
+    city: str | None = None
+    state: str | None = None
+    country: str | None = None
+    post_code: str | None = None
+    birthday: datetime | None = None
 
 
 class UserUpdate(BaseModel):
