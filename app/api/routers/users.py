@@ -65,4 +65,4 @@ def get_user_id_by_email(email: str, db: Session = Depends(get_db)) -> dict:
     user = db.query(User).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
+    return {"user_id": user.user_id}
