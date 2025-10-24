@@ -64,5 +64,5 @@ def get_user_id_by_email(email: str, db: Session = Depends(get_db)) -> dict:
     from app.models.user import User
     user = db.query(User).filter(User.email == email).first()
     if not user:
-        return {"user_id": None}
-    return {"user_id": user.user_id}
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
