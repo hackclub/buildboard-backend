@@ -66,3 +66,9 @@ def get_user_id_by_email(email: str, db: Session = Depends(get_db)) -> dict:
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return {"user_id": user.user_id}
+
+
+@router.get("/{user_id}/exists")
+def check_user_exists(user_id: str, db: Session = Depends(get_db)) -> dict:
+    user = crud.get_user(db, user_id)
+    return {"exists": user is not None}
