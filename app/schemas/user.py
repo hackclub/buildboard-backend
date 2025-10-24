@@ -31,7 +31,6 @@ class UserRead(UserBase):
     country: str | None = None
     post_code: str | None = None
     birthday: datetime | None = None
-    idv_token: str | None = None
     created_at: datetime
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)

@@ -13,9 +13,9 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
-def verify_auth(api_key: str = Header(...)) -> None:
+def verify_auth(Authorization: str = Header(...)) -> None:
     settings = get_settings()
-    if api_key != settings.MASTER_KEY:
+    if Authorization != settings.MASTER_KEY:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid API key"
