@@ -15,7 +15,7 @@ class Project(Base):
     attachment_urls: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     code_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     live_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    submission_week: Mapped[int] = mapped_column(Integer, nullable=False)
+    submission_week: Mapped[str] = mapped_column(String(50), nullable=False)
     paper_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     shipped: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     sent_to_airtable: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

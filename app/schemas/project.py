@@ -8,7 +8,7 @@ class ProjectBase(BaseModel):
     attachment_urls: list[str] | None = None
     code_url: str | None = None
     live_url: str | None = None
-    submission_week: int = Field(ge=1)
+    submission_week: str = Field(min_length=1, max_length=50)
     paper_url: str | None = None
     shipped: bool = False
     sent_to_airtable: bool = False
@@ -26,7 +26,7 @@ class ProjectUpdate(BaseModel):
     attachment_urls: list[str] | None = None
     code_url: str | None = None
     live_url: str | None = None
-    submission_week: int | None = Field(default=None, ge=1)
+    submission_week: str | None = Field(default=None, max_length=50)
     paper_url: str | None = None
     shipped: bool | None = None
     sent_to_airtable: bool | None = None
