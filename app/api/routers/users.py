@@ -1,10 +1,12 @@
-from typing import List
+from typing import List, Dict
+from datetime import date, timedelta
 from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, verify_auth, verify_admin
 from app.schemas.user import UserCreate, UserRead, UserUpdate
 from app.schemas.project import ProjectRead
 from app.crud import users as crud
+from app.models.user import User
 
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(verify_auth)])
 
@@ -72,3 +74,39 @@ def get_user_id_by_email(email: str, db: Session = Depends(get_db)) -> dict:
 def check_user_exists(user_id: str, db: Session = Depends(get_db)) -> dict:
     user = crud.get_user(db, user_id)
     return {"exists": user is not None}
+
+
+@router.post("/{user_id}/loggedin", status_code=status.HTTP_200_OK)
+def record_login(user_id: str, db: Session = Depends(get_db)) -> dict:
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    today = date.today().isoformat()
+    
+    if user.dates_logged_in is None:
+        user.dates_logged_in = []
+    
+    if len(user.dates_logged_in) == 0 or user.dates_logged_in[-1] != today:
+        user.dates_logged_in.append(today)
+        db.commit()
+        return {"message": "Login recorded", "date": today}
+    
+    return {"message": "Already logged in today", "date": today}
+
+
+@router.get("/stats/logins")
+def get_login_stats(db: Session = Depends(get_db)) -> Dict[str, int]:
+    start_date = date(2025, 10, 28)
+    today = date.today()
+    
+    stats = {}
+    current_date = start_date
+    
+    while current_date <= today:
+        date_str = current_date.isoformat()
+        users = db.query(User).filter(User.dates_logged_in.contains([date_str])).all()
+        stats[date_str] = len(users)
+        current_date += timedelta(days=1)
+    
+    return stats
