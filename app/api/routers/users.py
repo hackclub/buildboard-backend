@@ -105,8 +105,8 @@ def get_login_stats(db: Session = Depends(get_db)) -> Dict[str, int]:
     
     while current_date <= today:
         date_str = current_date.isoformat()
-        users = db.query(User).filter(User.dates_logged_in.contains([date_str])).all()
-        stats[date_str] = len(users)
+        count = db.query(User).filter(User.dates_logged_in.contains([date_str])).count()
+        stats[date_str] = count
         current_date += timedelta(days=1)
     
     return stats
