@@ -84,15 +84,22 @@ def record_login(user_id: str, db: Session = Depends(get_db)) -> dict:
     
     today = date.today().isoformat()
     
-    if user.dates_logged_in is None:
-        user.dates_logged_in = []
+    print(f"BEFORE: user_id={user_id}, dates_logged_in={user.dates_logged_in}")
     
-    if len(user.dates_logged_in) == 0 or user.dates_logged_in[-1] != today:
-        user.dates_logged_in.append(today)
-        db.commit()
-        return {"message": "Login recorded", "date": today}
+    dates = user.dates_logged_in or []
     
-    return {"message": "Already logged in today", "date": today}
+    if today in dates:
+        return {"message": "Already logged in today", "date": today}
+    
+    user.dates_logged_in = dates + [today]
+    print(f"AFTER ASSIGNMENT: dates_logged_in={user.dates_logged_in}")
+    
+    db.commit()
+    
+    db.refresh(user)
+    print(f"AFTER COMMIT: dates_logged_in={user.dates_logged_in}")
+    
+    return {"message": "Login recorded", "date": today}
 
 
 @router.get("/stats/logins")
