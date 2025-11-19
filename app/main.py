@@ -6,8 +6,13 @@ from app.api.routers.users import router as users_router
 from app.api.routers.projects import router as projects_router
 from app.api.routers.votes import router as votes_router
 from app.api.routers.reviews import router as reviews_router
+from app.api.routers.rsvps import router as rsvps_router
 from app.db import Base, engine, SessionLocal
+from app.models.user import User
 from app.models.project import Project
+from app.models.review import Review
+from app.models.vote import Vote
+from app.models.rsvp import RSVP
 from sqlalchemy import and_
 
 
@@ -47,12 +52,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+
 Base.metadata.create_all(bind=engine)
 
 app.include_router(users_router)
 app.include_router(projects_router)
 app.include_router(votes_router)
 app.include_router(reviews_router)
+app.include_router(rsvps_router)
 
 
 @app.get("/")
