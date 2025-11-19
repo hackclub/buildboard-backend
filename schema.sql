@@ -2,6 +2,8 @@ CREATE TABLE users (user_id VARCHAR(36) PRIMARY KEY, first_name VARCHAR(100) NOT
 
 CREATE TABLE rsvps (
     email VARCHAR(255) PRIMARY KEY,
+    ip_address VARCHAR(45) NOT NULL,
     rsvptime TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_rsvps_email ON rsvps(email);
+CREATE INDEX idx_rsvps_ip ON rsvps(ip_address);
