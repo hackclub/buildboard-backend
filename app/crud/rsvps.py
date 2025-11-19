@@ -22,6 +22,7 @@ def create_rsvp(db: Session, data: RSVPCreate):
     db.add(rsvp)
     db.commit()
     db.refresh(rsvp)
+    print(f"New RSVP created: {rsvp.email}")
     return rsvp
 
 def get_rsvp(db: Session, email: str) -> RSVP | None:
