@@ -7,6 +7,10 @@ from app.crud import rsvps as crud
 
 router = APIRouter(prefix="/rsvps", tags=["rsvps"], dependencies=[Depends(verify_auth)])
 
+@router.get("/count-ip")
+def get_ip_count(ip: str, db: Session = Depends(get_db)):
+    return crud.get_ip_count(db, ip)
+
 @router.post("", response_model=Union[RSVPRead, RSVPCollision], status_code=status.HTTP_200_OK)
 def create_rsvp(rsvp_in: RSVPCreate, db: Session = Depends(get_db)):
     return crud.create_rsvp(db, rsvp_in)
