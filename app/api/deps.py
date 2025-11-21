@@ -1,8 +1,11 @@
+import logging
 from collections.abc import Generator
 from sqlalchemy.orm import Session
 from fastapi import Header, HTTPException, status, Depends
 from app.db import SessionLocal
 from app.core.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -16,6 +19,8 @@ def get_db() -> Generator[Session, None, None]:
 def verify_auth(Authorization: str = Header(...)) -> None:
     settings = get_settings()
     if Authorization != settings.MASTER_KEY:
+        masked_received = f"{Authorization[:4]}...{Authorization[-4:]}" if len(Authorization) > 8 else "SHORT/INVALID"
+        logger.warning(f"Auth failed. Expected key starting with {settings.MASTER_KEY[:4]}..., received: {masked_received}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid API key"
