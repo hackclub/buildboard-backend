@@ -7,7 +7,7 @@ from app.crud import rsvps as crud
 
 router = APIRouter(prefix="/rsvps", tags=["rsvps"], dependencies=[Depends(verify_auth)])
 
-@router.get("/count-ip")
+@router.get("/count/{ip}")
 def get_ip_count(ip: str, db: Session = Depends(get_db)):
     return crud.get_ip_count(db, ip)
 
