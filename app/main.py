@@ -45,6 +45,8 @@ async def airtable_sync_task():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Set start time when app starts
+    app.state.start_time = datetime.now()
     task = asyncio.create_task(airtable_sync_task())
     yield
     task.cancel()
@@ -70,3 +72,14 @@ def root():
 @app.get("/time")
 def get_current_time():
     return {"current_time": datetime.now().isoformat()}
+
+
+@app.get("/health")
+def health_check():
+    start_time = app.state.start_time
+    uptime = datetime.now() - start_time
+    return {
+        "status": "up",
+        "since": start_time.isoformat(),
+        "uptime": str(uptime)
+    }
