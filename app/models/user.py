@@ -14,6 +14,7 @@ class User(Base):
     slack_id: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_reviewer: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_idv: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_slack_member: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     address_line_1: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -26,5 +27,4 @@ class User(Base):
     dates_logged_in: Mapped[list[str] | None] = mapped_column(JSON, nullable=True, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
-    
     projects: Mapped[list["Project"]] = relationship("Project", back_populates="user", cascade="all, delete-orphan")
