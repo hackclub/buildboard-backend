@@ -8,6 +8,7 @@ class UserBase(BaseModel):
     slack_id: str | None = Field(default=None, max_length=64)
     email: EmailStr
     is_admin: bool = False
+    is_reviewer: bool = False
     is_idv: bool = False
     is_slack_member: bool = False
 
@@ -28,6 +29,7 @@ class UserUpdate(BaseModel):
     slack_id: str | None = Field(default=None, max_length=64)
     email: EmailStr | None = None
     is_admin: bool | None = None
+    is_reviewer: bool | None = None
     is_idv: bool | None = None
     is_slack_member: bool | None = None
 

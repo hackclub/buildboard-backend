@@ -24,42 +24,21 @@ def run_migrations():
         return
 
     alembic_cfg = Config("alembic.ini")
+    alembic_cfg.attributes["is_auto_migration"] = True
     
     try:
-        inspector = inspect(engine)
+        # 1. Ensure we are up to date with existing migrations
+        logger.info("Running existing migrations...")
+        command.upgrade(alembic_cfg, "head")
         
-        # Check if tables exist (we check 'users' as a proxy for the schema)
-        has_users = inspector.has_table("users")
+        # 2. Check for new changes and generate migration if needed
+        logger.info("Checking for schema changes...")
+        # We use a unique message for auto-generated migrations
+        command.revision(alembic_cfg, message="auto_migration", autogenerate=True)
         
-        if not has_users:
-            logger.info("No 'users' table found. Creating all tables via SQLAlchemy...")
-            Base.metadata.create_all(bind=engine)
-            logger.info("Tables created. Stamping database as head...")
-            command.stamp(alembic_cfg, "head")
-            logger.info("Database initialized and stamped.")
-            return
-
-        # Check if alembic_version table exists
-        has_alembic_version = inspector.has_table("alembic_version")
-        
-        if has_alembic_version:
-            logger.info("Alembic version table found. checking for pending migrations...")
-            command.upgrade(alembic_cfg, "head")
-            logger.info("Migrations up to date.")
-            return
-            
-        # Fallback: Tables exist but no alembic version. 
-        # Check if we are in 'legacy' (old schema) or 'fresh-but-untracked' (new schema) state.
-        # We check for a column that is new (e.g., is_idv in users)
-        logger.info("Existing tables found but no alembic_version. Inspecting schema...")
-        columns = [c["name"] for c in inspector.get_columns("users")]
-        
-        if "is_idv" in columns:
-            logger.info("Tables appear to be up-to-date (is_idv present). Stamping as head...")
-            command.stamp(alembic_cfg, "head")
-        else:
-            logger.info("Tables appear outdated (is_idv missing). Running migrations...")
-            command.upgrade(alembic_cfg, "head")
+        # 3. Apply any new migrations (if generated)
+        logger.info("Applying any new migrations...")
+        command.upgrade(alembic_cfg, "head")
             
         logger.info("Migration process complete.")
         

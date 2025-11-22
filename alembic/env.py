@@ -71,6 +71,18 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    def process_revision_directives(context, revision, directives):
+        # Check if autogenerate is enabled via CLI or custom attribute for programmatic run
+        cmd_opts = getattr(config, "cmd_opts", None)
+        is_cli_autogen = getattr(cmd_opts, "autogenerate", False)
+        is_prog_autogen = config.attributes.get("is_auto_migration", False)
+        
+        if is_cli_autogen or is_prog_autogen:
+            script = directives[0]
+            if script.upgrade_ops.is_empty():
+                directives[:] = []
+                print("No changes in schema detected.")
+
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
@@ -79,7 +91,9 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection, 
+            target_metadata=target_metadata,
+            process_revision_directives=process_revision_directives,
         )
 
         with context.begin_transaction():
