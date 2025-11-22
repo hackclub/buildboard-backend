@@ -5,9 +5,11 @@ from pydantic import BaseModel, EmailStr, Field, ConfigDict
 class UserBase(BaseModel):
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str = Field(min_length=1, max_length=100)
-    slack_id: str = Field(min_length=1, max_length=64)
+    slack_id: str | None = Field(default=None, max_length=64)
     email: EmailStr
     is_admin: bool = False
+    is_idv: bool = False
+    is_slack_member: bool = False
 
 
 class UserCreate(UserBase):
@@ -26,6 +28,8 @@ class UserUpdate(BaseModel):
     slack_id: str | None = Field(default=None, max_length=64)
     email: EmailStr | None = None
     is_admin: bool | None = None
+    is_idv: bool | None = None
+    is_slack_member: bool | None = None
 
 
 class UserRead(UserBase):
