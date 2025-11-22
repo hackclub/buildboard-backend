@@ -14,6 +14,7 @@ from app.models.review import Review
 from app.models.vote import Vote
 from app.models.rsvp import RSVP
 from sqlalchemy import and_
+from app.migrate_db import run_migrations
 
 
 async def airtable_sync_task():
@@ -47,6 +48,17 @@ async def airtable_sync_task():
 async def lifespan(app: FastAPI):
     # Set start time when app starts
     app.state.start_time = datetime.now()
+    
+    # Run database migrations
+    try:
+        print("Running database migrations...")
+        run_migrations()
+        print("Database migrations completed.")
+    except Exception as e:
+        print(f"WARNING: Database migration failed: {e}")
+        # We continue anyway, as it might be a transient DB issue or local dev setup
+        pass
+
     task = asyncio.create_task(airtable_sync_task())
     yield
     task.cancel()
@@ -54,8 +66,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-
-Base.metadata.create_all(bind=engine)
 
 app.include_router(users_router)
 app.include_router(projects_router)

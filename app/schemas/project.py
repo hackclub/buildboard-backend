@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, HttpUrl, ConfigDict
 class ProjectBase(BaseModel):
     project_name: str = Field(min_length=1, max_length=200)
     project_description: str = Field(min_length=1)
+    project_type: str | None = None
     attachment_urls: list[str] | None = None
     code_url: str | None = None
     live_url: str | None = None
@@ -23,6 +24,7 @@ class ProjectCreate(ProjectBase):
 class ProjectUpdate(BaseModel):
     project_name: str | None = Field(default=None, max_length=200)
     project_description: str | None = None
+    project_type: str | None = None
     attachment_urls: list[str] | None = None
     code_url: str | None = None
     live_url: str | None = None

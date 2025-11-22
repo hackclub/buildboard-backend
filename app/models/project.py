@@ -12,6 +12,7 @@ class Project(Base):
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.user_id"), nullable=False, index=True)
     project_name: Mapped[str] = mapped_column(String(200), nullable=False)
     project_description: Mapped[str] = mapped_column(Text, nullable=False)
+    project_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     attachment_urls: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     code_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     live_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
