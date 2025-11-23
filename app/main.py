@@ -7,6 +7,7 @@ from app.api.routers.projects import router as projects_router
 from app.api.routers.votes import router as votes_router
 from app.api.routers.reviews import router as reviews_router
 from app.api.routers.rsvps import router as rsvps_router
+from app.api.routers.hackatime import router as hackatime_router
 from app.db import Base, engine, SessionLocal
 from app.models.user import User
 from app.models.project import Project
@@ -71,7 +72,9 @@ app.include_router(users_router)
 app.include_router(projects_router)
 app.include_router(votes_router)
 app.include_router(reviews_router)
+app.include_router(reviews_router)
 app.include_router(rsvps_router)
+app.include_router(hackatime_router)
 
 
 @app.get("/")

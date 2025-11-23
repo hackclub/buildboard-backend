@@ -61,3 +61,17 @@ def verify_reviewer(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Reviewer access required"
         )
+
+
+def get_current_user(
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+):
+    from app.models.user import User
+    user = db.get(User, x_user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    return user
