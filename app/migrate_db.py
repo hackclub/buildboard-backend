@@ -11,6 +11,7 @@ from app.models.project import Project
 from app.models.review import Review
 from app.models.vote import Vote
 from app.models.rsvp import RSVP
+from app.models.hackatime_project import HackatimeProject
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

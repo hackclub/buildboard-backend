@@ -14,6 +14,7 @@ class ProjectBase(BaseModel):
     shipped: bool = False
     sent_to_airtable: bool = False
     review_ids: list[str] | None = None
+    hackatime_project_keys: list[str] | None = None
     time_spent: int | None = Field(default=None, ge=0)
 
 
@@ -33,6 +34,7 @@ class ProjectUpdate(BaseModel):
     shipped: bool | None = None
     sent_to_airtable: bool | None = None
     review_ids: list[str] | None = None
+    hackatime_project_keys: list[str] | None = None
     time_spent: int | None = Field(default=None, ge=0)
 
 
