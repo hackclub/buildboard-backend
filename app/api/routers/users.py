@@ -1,6 +1,6 @@
 from typing import List, Dict
 from datetime import date, timedelta
-from fastapi import APIRouter, Depends, Query, status, HTTPException
+from fastapi import APIRouter, Depends, Query, status, HTTPException, Header
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, verify_auth, verify_admin
 from app.schemas.user import UserCreate, UserRead, UserUpdate
@@ -21,6 +21,29 @@ def get_user(user_id: str, db: Session = Depends(get_db)) -> UserRead:
     user = crud.get_user(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+@router.get("/handle/{handle}", response_model=UserRead)
+def get_user_by_handle(
+    handle: str,
+    x_user_id: str | None = Header(default=None),
+    db: Session = Depends(get_db)
+) -> UserRead:
+    user = crud.get_user_by_handle(db, handle)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Privacy check
+    # If user is public, allow access
+    # If user is private, only allow if requester is the owner
+    if not user.is_public:
+        if not x_user_id or x_user_id != user.user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="This profile is private"
+            )
+            
     return user
 
 

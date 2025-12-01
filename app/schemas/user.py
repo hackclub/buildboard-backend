@@ -10,7 +10,9 @@ class UserBase(BaseModel):
     is_admin: bool = False
     is_reviewer: bool = False
     is_idv: bool = False
+    is_idv: bool = False
     is_slack_member: bool = False
+    is_public: bool = False
 
 
 class UserCreate(UserBase):
@@ -31,11 +33,14 @@ class UserUpdate(BaseModel):
     is_admin: bool | None = None
     is_reviewer: bool | None = None
     is_idv: bool | None = None
+    is_idv: bool | None = None
     is_slack_member: bool | None = None
+    is_public: bool | None = None
 
 
 class UserRead(UserBase):
     user_id: str
+    handle: str | None = None
     address_line_1: str | None = None
     address_line_2: str | None = None
     city: str | None = None
