@@ -22,6 +22,8 @@ class Project(Base):
     sent_to_airtable: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     review_ids: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     hackatime_project_keys: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    github_installation_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    github_repo_path: Mapped[str | None] = mapped_column(String(200), nullable=True)
     time_spent: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

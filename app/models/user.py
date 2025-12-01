@@ -13,6 +13,8 @@ class User(Base):
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
     slack_id: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    handle: Mapped[str | None] = mapped_column(String(50), unique=True, nullable=True, index=True)
+    is_public: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_reviewer: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_idv: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
