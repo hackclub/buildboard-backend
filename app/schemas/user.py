@@ -13,6 +13,8 @@ class UserBase(BaseModel):
     is_idv: bool = False
     is_slack_member: bool = False
     is_public: bool = False
+    public_profile_url: str | None = None
+    bio: str | None = None
 
 
 class UserCreate(UserBase):
@@ -36,11 +38,15 @@ class UserUpdate(BaseModel):
     is_idv: bool | None = None
     is_slack_member: bool | None = None
     is_public: bool | None = None
+    public_profile_url: str | None = None
+    bio: str | None = None
 
 
 class UserRead(UserBase):
     user_id: str
     handle: str | None = None
+    public_profile_url: str | None = None
+    bio: str | None = None
     address_line_1: str | None = None
     address_line_2: str | None = None
     city: str | None = None

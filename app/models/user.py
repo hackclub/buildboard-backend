@@ -15,6 +15,8 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     handle: Mapped[str | None] = mapped_column(String(50), unique=True, nullable=True, index=True)
     is_public: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    public_profile_url: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
+    bio: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_reviewer: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_idv: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
