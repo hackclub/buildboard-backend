@@ -46,3 +46,7 @@ uvicorn==0.37.0
 watchfiles==1.1.1
 websockets==15.0.1
 alembic==1.17.2
+<<<<<<< HEAD
+=======
+PyJWT
+>>>>>>> 1eb76e0 (feat: Add all features (handle system, GitHub integration, analytics, migrations, cleanup pycache))

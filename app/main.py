@@ -8,7 +8,15 @@ from app.api.routers.votes import router as votes_router
 from app.api.routers.reviews import router as reviews_router
 from app.api.routers.rsvps import router as rsvps_router
 from app.api.routers.hackatime import router as hackatime_router
+<<<<<<< HEAD
 from app.db import Base, engine, SessionLocal
+=======
+from app.api.routers.github import router as github_router
+from app.api.routers.analytics import router as analytics_router
+from app.db import Base, engine, SessionLocal
+
+
+>>>>>>> 1eb76e0 (feat: Add all features (handle system, GitHub integration, analytics, migrations, cleanup pycache))
 from app.models.user import User
 from app.models.project import Project
 from app.models.review import Review
@@ -75,6 +83,11 @@ app.include_router(reviews_router)
 app.include_router(reviews_router)
 app.include_router(rsvps_router)
 app.include_router(hackatime_router)
+<<<<<<< HEAD
+=======
+app.include_router(github_router)
+app.include_router(analytics_router)
+>>>>>>> 1eb76e0 (feat: Add all features (handle system, GitHub integration, analytics, migrations, cleanup pycache))
 
 
 @app.get("/")

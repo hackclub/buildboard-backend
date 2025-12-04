@@ -37,6 +37,15 @@ You need a `.env` file to tell the application how to connect to this local data
    *If you are running the app inside Docker as well (not just the DB), you might need to use `host.docker.internal` instead of `localhost`.*
 
 ### 4. Running the App
+<<<<<<< HEAD
+=======
+Create and activate a virtual environment:
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+>>>>>>> 1eb76e0 (feat: Add all features (handle system, GitHub integration, analytics, migrations, cleanup pycache))
 Install dependencies:
 ```bash
 pip install -r requirements.txt
