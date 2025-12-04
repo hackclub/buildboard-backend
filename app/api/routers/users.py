@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from fastapi import APIRouter, Depends, Query, status, HTTPException, Header
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, verify_auth, verify_admin
-from app.schemas.user import UserCreate, UserRead, UserUpdate
+from app.schemas.user import UserCreate, UserRead, UserUpdate, UserPublicRead
 from app.schemas.project import ProjectRead
 from app.crud import users as crud
 from app.models.user import User
@@ -47,12 +47,13 @@ def get_user_by_handle(
     return user
 
 
-@router.get("", response_model=List[UserRead])
+@router.get("", response_model=List[UserPublicRead])
 def list_users(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db)
-) -> List[UserRead]:
+) -> List[UserPublicRead]:
+    """List users - returns public info only (no PII like addresses/emails)"""
     return list(crud.list_users(db, skip=skip, limit=limit))
 
 
@@ -60,13 +61,51 @@ def list_users(
 def update_user(
     user_id: str,
     user_in: UserUpdate,
+    x_user_id: str = Header(...),
     db: Session = Depends(get_db)
 ) -> UserRead:
+    # Ownership check: users can only update their own profile (admins can update anyone)
+    requesting_user = crud.get_user(db, x_user_id)
+    if not requesting_user:
+        raise HTTPException(status_code=404, detail="Requesting user not found")
+    
+    if x_user_id != user_id and not requesting_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only update your own profile"
+        )
+    
+    # SECURITY: Strip privileged fields - only admins can modify these
+    PRIVILEGED_FIELDS = {"is_admin", "is_reviewer", "role"}
+    if not requesting_user.is_admin:
+        update_data = user_in.model_dump(exclude_unset=True)
+        for field in PRIVILEGED_FIELDS:
+            if field in update_data:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"You cannot modify the '{field}' field"
+                )
+    
     return crud.update_user(db, user_id, user_in)
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(user_id: str, db: Session = Depends(get_db)) -> None:
+def delete_user(
+    user_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> None:
+    # Ownership check: users can only delete their own account (admins can delete anyone)
+    requesting_user = crud.get_user(db, x_user_id)
+    if not requesting_user:
+        raise HTTPException(status_code=404, detail="Requesting user not found")
+    
+    if x_user_id != user_id and not requesting_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete your own account"
+        )
+    
     crud.delete_user(db, user_id)
     return None
 
@@ -84,8 +123,9 @@ def list_user_projects(user_id: str, db: Session = Depends(get_db)) -> List[Proj
     return user.projects
 
 
-@router.get("/by-email/{email}")
+@router.get("/by-email/{email}", dependencies=[Depends(verify_admin)])
 def get_user_id_by_email(email: str, db: Session = Depends(get_db)) -> dict:
+    """Get user ID by email - admin only to prevent email enumeration"""
     from app.models.user import User
     user = db.query(User).filter(User.email == email).first()
     if not user:
@@ -125,7 +165,7 @@ def record_login(user_id: str, db: Session = Depends(get_db)) -> dict:
     return {"message": "Login recorded", "date": today}
 
 
-@router.get("/stats/logins")
+@router.get("/stats/logins", dependencies=[Depends(verify_admin)])
 def get_login_stats(db: Session = Depends(get_db)) -> Dict[str, int]:
     start_date = date(2025, 10, 28)
     today = date.today()
@@ -142,9 +182,9 @@ def get_login_stats(db: Session = Depends(get_db)) -> Dict[str, int]:
     return stats
 
 
-@router.get("/role/{role}", response_model=List[UserRead])
-def list_users_by_role(role: str, db: Session = Depends(get_db)) -> List[UserRead]:
-    """List all users with a specific role (e.g., 'author')"""
+@router.get("/role/{role}", response_model=List[UserPublicRead])
+def list_users_by_role(role: str, db: Session = Depends(get_db)) -> List[UserPublicRead]:
+    """List all users with a specific role (e.g., 'author') - returns public info only"""
     users = db.query(User).filter(User.role == role).all()
     return list(users)
 
@@ -153,12 +193,30 @@ def list_users_by_role(role: str, db: Session = Depends(get_db)) -> List[UserRea
 def assign_author(
     user_id: str,
     author_id: str,
+    x_user_id: str = Header(...),
     db: Session = Depends(get_db)
 ) -> UserRead:
-    """Assign an author to a user"""
+    """
+    Assign an author to a user.
+    
+    SECURITY: Ownership check - users can only assign authors to their own account.
+    Without this, any authenticated user could modify anyone's author assignment (IDOR vulnerability).
+    Admins can assign authors to any user.
+    """
     user = crud.get_user(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    requesting_user = crud.get_user(db, x_user_id)
+    if not requesting_user:
+        raise HTTPException(status_code=404, detail="Requesting user not found")
+    
+    # Ownership check: only the account owner OR an admin can assign authors
+    if x_user_id != user_id and not requesting_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only assign authors to your own account"
+        )
     
     author = crud.get_user(db, author_id)
     if not author:
