@@ -140,3 +140,33 @@ def get_login_stats(db: Session = Depends(get_db)) -> Dict[str, int]:
         current_date += timedelta(days=1)
     
     return stats
+
+
+@router.get("/role/{role}", response_model=List[UserRead])
+def list_users_by_role(role: str, db: Session = Depends(get_db)) -> List[UserRead]:
+    """List all users with a specific role (e.g., 'author')"""
+    users = db.query(User).filter(User.role == role).all()
+    return list(users)
+
+
+@router.post("/{user_id}/assign-author/{author_id}", response_model=UserRead)
+def assign_author(
+    user_id: str,
+    author_id: str,
+    db: Session = Depends(get_db)
+) -> UserRead:
+    """Assign an author to a user"""
+    user = crud.get_user(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    author = crud.get_user(db, author_id)
+    if not author:
+        raise HTTPException(status_code=404, detail="Author not found")
+    if author.role != "author":
+        raise HTTPException(status_code=400, detail="Selected user is not an author")
+    
+    user.assigned_author_id = author_id
+    db.commit()
+    db.refresh(user)
+    return user

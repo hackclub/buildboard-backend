@@ -40,6 +40,20 @@ class UserUpdate(BaseModel):
     is_public: bool | None = None
     public_profile_url: str | None = None
     bio: str | None = None
+    role: str | None = None
+    assigned_author_id: str | None = None
+    avatar_url: str | None = None
+
+
+class AuthorInfo(BaseModel):
+    user_id: str
+    first_name: str
+    last_name: str
+    slack_id: str | None = None
+    email: str | None = None
+    avatar_url: str | None = None
+    bio: str | None = None
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserRead(UserBase):
@@ -47,6 +61,9 @@ class UserRead(UserBase):
     handle: str | None = None
     public_profile_url: str | None = None
     bio: str | None = None
+    role: str | None = None
+    assigned_author_id: str | None = None
+    avatar_url: str | None = None
     address_line_1: str | None = None
     address_line_2: str | None = None
     city: str | None = None
