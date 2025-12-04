@@ -1,9 +1,10 @@
 from typing import List
-from fastapi import APIRouter, Depends, Query, status, HTTPException
+from fastapi import APIRouter, Depends, Query, status, HTTPException, Header
 from sqlalchemy.orm import Session
-from app.api.deps import get_db, verify_auth, verify_admin
+from app.api.deps import get_db, verify_auth, verify_admin, verify_reviewer
 from app.schemas.review import ReviewCreate, ReviewRead, ReviewUpdate
 from app.crud import reviews as crud
+from app.crud import users as users_crud
 
 router = APIRouter(prefix="/reviews", tags=["reviews"], dependencies=[Depends(verify_auth)])
 
@@ -40,12 +41,61 @@ def list_reviews(
 def update_review(
     review_id: str,
     review_in: ReviewUpdate,
+    x_user_id: str = Header(...),
     db: Session = Depends(get_db)
 ) -> ReviewRead:
+    """
+    Update a review.
+    
+    SECURITY: Ownership check - users can only update their own reviews.
+    Without this, any authenticated user could modify anyone's review (IDOR vulnerability).
+    Admins can update any review.
+    """
+    review = crud.get_review(db, review_id)
+    if not review:
+        raise HTTPException(status_code=404, detail="Review not found")
+    
+    requesting_user = users_crud.get_user(db, x_user_id)
+    if not requesting_user:
+        raise HTTPException(status_code=404, detail="Requesting user not found")
+    
+    # Ownership check: only the reviewer who created it OR an admin can update
+    if review.reviewer_user_id != x_user_id and not requesting_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only update your own reviews"
+        )
+    
     return crud.update_review(db, review_id, review_in)
 
 
 @router.delete("/{review_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_review(review_id: str, db: Session = Depends(get_db)) -> None:
+def delete_review(
+    review_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> None:
+    """
+    Delete a review.
+    
+    SECURITY: Ownership check - users can only delete their own reviews.
+    Without this, any authenticated user could delete anyone's review (IDOR vulnerability).
+    Admins can delete any review.
+    """
+    review = crud.get_review(db, review_id)
+    if not review:
+        raise HTTPException(status_code=404, detail="Review not found")
+    
+    requesting_user = users_crud.get_user(db, x_user_id)
+    if not requesting_user:
+        raise HTTPException(status_code=404, detail="Requesting user not found")
+    
+    # Ownership check: only the reviewer who created it OR an admin can delete
+    if review.reviewer_user_id != x_user_id and not requesting_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete your own reviews"
+        )
+    
     crud.delete_review(db, review_id)
     return None

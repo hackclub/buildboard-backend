@@ -4,10 +4,15 @@ from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate
+from app.utils.handle_generator import generate_friendly_handle
 
 
 def create_user(db: Session, data: UserCreate) -> User:
-    user = User(**data.model_dump())
+    user_data = data.model_dump()
+    if not user_data.get("handle"):
+        user_data["handle"] = generate_friendly_handle()
+        
+    user = User(**user_data)
     db.add(user)
     try:
         db.commit()
@@ -23,6 +28,10 @@ def create_user(db: Session, data: UserCreate) -> User:
 
 def get_user(db: Session, user_id: str) -> User | None:
     return db.get(User, user_id)
+
+
+def get_user_by_handle(db: Session, handle: str) -> User | None:
+    return db.query(User).filter(User.handle == handle).first()
 
 
 def list_users(db: Session, skip: int = 0, limit: int = 100) -> Sequence[User]:
