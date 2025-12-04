@@ -9,6 +9,7 @@ from app.api.routers.reviews import router as reviews_router
 from app.api.routers.rsvps import router as rsvps_router
 from app.api.routers.hackatime import router as hackatime_router
 from app.api.routers.github import router as github_router
+from app.api.routers.analytics import router as analytics_router
 from app.db import Base, engine, SessionLocal
 
 
@@ -79,6 +80,7 @@ app.include_router(reviews_router)
 app.include_router(rsvps_router)
 app.include_router(hackatime_router)
 app.include_router(github_router)
+app.include_router(analytics_router)
 
 
 @app.get("/")
