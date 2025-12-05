@@ -6,9 +6,18 @@ from app.api.routers.users import router as users_router
 from app.api.routers.projects import router as projects_router
 from app.api.routers.votes import router as votes_router
 from app.api.routers.reviews import router as reviews_router
+from app.api.routers.rsvps import router as rsvps_router
+from app.api.routers.hackatime import router as hackatime_router
+from app.api.routers.github import router as github_router
+from app.api.routers.analytics import router as analytics_router
 from app.db import Base, engine, SessionLocal
+from app.models.user import User
 from app.models.project import Project
+from app.models.review import Review
+from app.models.vote import Vote
+from app.models.rsvp import RSVP
 from sqlalchemy import and_
+from app.migrate_db import run_migrations
 
 
 async def airtable_sync_task():
@@ -40,6 +49,19 @@ async def airtable_sync_task():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Set start time when app starts
+    app.state.start_time = datetime.now()
+    
+    # Run database migrations
+    try:
+        print("Running database migrations...")
+        run_migrations()
+        print("Database migrations completed.")
+    except Exception as e:
+        print(f"WARNING: Database migration failed: {e}")
+        # We continue anyway, as it might be a transient DB issue or local dev setup
+        pass
+
     task = asyncio.create_task(airtable_sync_task())
     yield
     task.cancel()
@@ -47,12 +69,16 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-Base.metadata.create_all(bind=engine)
 
 app.include_router(users_router)
 app.include_router(projects_router)
 app.include_router(votes_router)
 app.include_router(reviews_router)
+app.include_router(reviews_router)
+app.include_router(rsvps_router)
+app.include_router(hackatime_router)
+app.include_router(github_router)
+app.include_router(analytics_router)
 
 
 @app.get("/")
@@ -63,3 +89,14 @@ def root():
 @app.get("/time")
 def get_current_time():
     return {"current_time": datetime.now().isoformat()}
+
+
+@app.get("/health")
+def health_check():
+    start_time = app.state.start_time
+    uptime = datetime.now() - start_time
+    return {
+        "status": "up",
+        "since": start_time.isoformat(),
+        "uptime": str(uptime)
+    }
