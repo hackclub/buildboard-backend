@@ -3,8 +3,9 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "postgresql://user:password@localhost:5432/accelerate"
+    DATABASE_URL: str
     MASTER_KEY: str
+    FRONTEND_URL: str = "http://localhost:5173"
     
     class Config:
         env_file = ".env"

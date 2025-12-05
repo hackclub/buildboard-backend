@@ -1,9 +1,10 @@
 from typing import List
-from fastapi import APIRouter, Depends, Query, status, HTTPException
+from fastapi import APIRouter, Depends, Query, status, HTTPException, Header
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, verify_auth
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
 from app.crud import projects as crud
+from app.crud import users as users_crud
 
 router = APIRouter(prefix="/projects", tags=["projects"], dependencies=[Depends(verify_auth)])
 
@@ -37,12 +38,47 @@ def list_projects(
 def update_project(
     project_id: str,
     project_in: ProjectUpdate,
+    x_user_id: str = Header(...),
     db: Session = Depends(get_db)
 ) -> ProjectRead:
+    # Ownership check: users can only update their own projects (admins can update any)
+    project = crud.get_project(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    requesting_user = users_crud.get_user(db, x_user_id)
+    if not requesting_user:
+        raise HTTPException(status_code=404, detail="Requesting user not found")
+    
+    if project.user_id != x_user_id and not requesting_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only update your own projects"
+        )
+    
     return crud.update_project(db, project_id, project_in)
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_project(project_id: str, db: Session = Depends(get_db)) -> None:
+def delete_project(
+    project_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> None:
+    # Ownership check: users can only delete their own projects (admins can delete any)
+    project = crud.get_project(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    requesting_user = users_crud.get_user(db, x_user_id)
+    if not requesting_user:
+        raise HTTPException(status_code=404, detail="Requesting user not found")
+    
+    if project.user_id != x_user_id and not requesting_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete your own projects"
+        )
+    
     crud.delete_project(db, project_id)
     return None
