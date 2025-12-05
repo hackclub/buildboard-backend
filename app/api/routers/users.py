@@ -16,6 +16,31 @@ def create_user(user_in: UserCreate, db: Session = Depends(get_db)) -> UserRead:
     return crud.create_user(db, user_in)
 
 
+@router.get("/by-email/{email}")
+def get_user_id_by_email(email: str, db: Session = Depends(get_db)) -> dict:
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"user_id": user.user_id}
+
+
+@router.get("/stats/logins")
+def get_login_stats(db: Session = Depends(get_db)) -> Dict[str, int]:
+    start_date = date(2025, 10, 28)
+    today = date.today()
+    
+    stats = {}
+    current_date = start_date
+    
+    while current_date <= today:
+        date_str = current_date.isoformat()
+        count = db.query(User).filter(User.dates_logged_in.contains([date_str])).count()
+        stats[date_str] = count
+        current_date += timedelta(days=1)
+    
+    return stats
+
+
 @router.get("/{user_id}", response_model=UserRead)
 def get_user(user_id: str, db: Session = Depends(get_db)) -> UserRead:
     user = crud.get_user(db, user_id)
@@ -61,15 +86,6 @@ def list_user_projects(user_id: str, db: Session = Depends(get_db)) -> List[Proj
     return user.projects
 
 
-@router.get("/by-email/{email}")
-def get_user_id_by_email(email: str, db: Session = Depends(get_db)) -> dict:
-    from app.models.user import User
-    user = db.query(User).filter(User.email == email).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return {"user_id": user.user_id}
-
-
 @router.get("/{user_id}/exists")
 def check_user_exists(user_id: str, db: Session = Depends(get_db)) -> dict:
     user = crud.get_user(db, user_id)
@@ -100,20 +116,3 @@ def record_login(user_id: str, db: Session = Depends(get_db)) -> dict:
     print(f"AFTER COMMIT: dates_logged_in={user.dates_logged_in}")
     
     return {"message": "Login recorded", "date": today}
-
-
-@router.get("/stats/logins")
-def get_login_stats(db: Session = Depends(get_db)) -> Dict[str, int]:
-    start_date = date(2025, 10, 28)
-    today = date.today()
-    
-    stats = {}
-    current_date = start_date
-    
-    while current_date <= today:
-        date_str = current_date.isoformat()
-        count = db.query(User).filter(User.dates_logged_in.contains([date_str])).count()
-        stats[date_str] = count
-        current_date += timedelta(days=1)
-    
-    return stats
