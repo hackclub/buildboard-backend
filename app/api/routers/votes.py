@@ -1,9 +1,10 @@
 from typing import List
-from fastapi import APIRouter, Depends, Query, status, HTTPException
+from fastapi import APIRouter, Depends, Query, status, HTTPException, Header
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, verify_auth
 from app.schemas.vote import VoteCreate, VoteRead, VoteUpdate
 from app.crud import votes as crud
+from app.crud import users as users_crud
 
 router = APIRouter(prefix="/votes", tags=["votes"], dependencies=[Depends(verify_auth)])
 
@@ -40,12 +41,61 @@ def list_votes(
 def update_vote(
     vote_id: str,
     vote_in: VoteUpdate,
+    x_user_id: str = Header(...),
     db: Session = Depends(get_db)
 ) -> VoteRead:
+    """
+    Update a vote.
+    
+    SECURITY: Ownership check - users can only update their own votes.
+    Without this, any authenticated user could change anyone's vote (IDOR vulnerability).
+    Admins can update any vote.
+    """
+    vote = crud.get_vote(db, vote_id)
+    if not vote:
+        raise HTTPException(status_code=404, detail="Vote not found")
+    
+    requesting_user = users_crud.get_user(db, x_user_id)
+    if not requesting_user:
+        raise HTTPException(status_code=404, detail="Requesting user not found")
+    
+    # Ownership check: only the user who cast the vote OR an admin can update
+    if vote.user_id != x_user_id and not requesting_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only update your own votes"
+        )
+    
     return crud.update_vote(db, vote_id, vote_in)
 
 
 @router.delete("/{vote_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_vote(vote_id: str, db: Session = Depends(get_db)) -> None:
+def delete_vote(
+    vote_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> None:
+    """
+    Delete a vote.
+    
+    SECURITY: Ownership check - users can only delete their own votes.
+    Without this, any authenticated user could delete anyone's vote (IDOR vulnerability).
+    Admins can delete any vote.
+    """
+    vote = crud.get_vote(db, vote_id)
+    if not vote:
+        raise HTTPException(status_code=404, detail="Vote not found")
+    
+    requesting_user = users_crud.get_user(db, x_user_id)
+    if not requesting_user:
+        raise HTTPException(status_code=404, detail="Requesting user not found")
+    
+    # Ownership check: only the user who cast the vote OR an admin can delete
+    if vote.user_id != x_user_id and not requesting_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete your own votes"
+        )
+    
     crud.delete_vote(db, vote_id)
     return None

@@ -1,4 +1,5 @@
 venv
+.venv/
 AGENTS.md
 .env
 .env.prod
