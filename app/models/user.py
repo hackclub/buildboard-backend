@@ -1,8 +1,15 @@
 from datetime import datetime, date
 from uuid import uuid4
+import secrets
+import string
 from sqlalchemy import String, DateTime, func, Boolean, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db import Base
+
+
+def generate_referral_code() -> str:
+    chars = string.ascii_uppercase + string.digits
+    return ''.join(secrets.choice(chars) for _ in range(8))
 
 
 class User(Base):
@@ -17,6 +24,8 @@ class User(Base):
     is_reviewer: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_idv: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_slack_member: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    referral_code: Mapped[str] = mapped_column(String(8), unique=True, nullable=False, default=generate_referral_code, index=True)
+    referred_by: Mapped[str | None] = mapped_column(String(8), nullable=True)
     address_line_1: Mapped[str | None] = mapped_column(String(255), nullable=True)
     address_line_2: Mapped[str | None] = mapped_column(String(255), nullable=True)
     city: Mapped[str | None] = mapped_column(String(100), nullable=True)

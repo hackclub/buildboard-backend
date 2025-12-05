@@ -46,3 +46,5 @@ uvicorn==0.37.0
 watchfiles==1.1.1
 websockets==15.0.1
 alembic==1.17.2
+qrcode[pil]==8.0
+Pillow==11.1.0

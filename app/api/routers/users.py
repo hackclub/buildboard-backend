@@ -1,12 +1,14 @@
 from typing import List, Dict
 from datetime import date, timedelta
 from fastapi import APIRouter, Depends, Query, status, HTTPException
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, verify_auth, verify_admin
 from app.schemas.user import UserCreate, UserRead, UserUpdate
 from app.schemas.project import ProjectRead
 from app.crud import users as crud
 from app.models.user import User
+from app.services.referral import generate_qr_code, generate_referral_utm_link
 
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(verify_auth)])
 
@@ -117,3 +119,25 @@ def get_login_stats(db: Session = Depends(get_db)) -> Dict[str, int]:
         current_date += timedelta(days=1)
     
     return stats
+
+
+@router.get("/{user_id}/referral/qr")
+def get_referral_qr_code(user_id: str, db: Session = Depends(get_db)) -> Response:
+    user = crud.get_user(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    qr_bytes = generate_qr_code(user.referral_code)
+    return Response(content=qr_bytes, media_type="image/png")
+
+
+@router.get("/{user_id}/referral/link")
+def get_referral_link(user_id: str, db: Session = Depends(get_db)) -> dict:
+    user = crud.get_user(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {
+        "referral_code": user.referral_code,
+        "referral_link": generate_referral_utm_link(user.referral_code),
+    }
