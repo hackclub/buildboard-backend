@@ -10,15 +10,10 @@ class UserBase(BaseModel):
     is_admin: bool = False
     is_reviewer: bool = False
     is_idv: bool = False
-<<<<<<< HEAD
-    is_slack_member: bool = False
-=======
-    is_idv: bool = False
     is_slack_member: bool = False
     is_public: bool = False
     public_profile_url: str | None = None
     bio: str | None = None
->>>>>>> 1eb76e0 (feat: Add all features (handle system, GitHub integration, analytics, migrations, cleanup pycache))
 
 
 class UserCreate(UserBase):
@@ -39,10 +34,6 @@ class UserUpdate(BaseModel):
     email: EmailStr | None = None
     is_admin: bool | None = None
     is_reviewer: bool | None = None
-    is_idv: bool | None = None
-<<<<<<< HEAD
-    is_slack_member: bool | None = None
-=======
     is_idv: bool | None = None
     is_slack_member: bool | None = None
     is_public: bool | None = None
@@ -80,7 +71,6 @@ class UserPublicRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)
->>>>>>> 1eb76e0 (feat: Add all features (handle system, GitHub integration, analytics, migrations, cleanup pycache))
 
 
 class UserRead(UserBase):
