@@ -8,7 +8,9 @@ from app.schemas.user import UserCreate, UserRead, UserUpdate
 from app.schemas.project import ProjectRead
 from app.crud import users as crud
 from app.models.user import User
-from app.services.referral import generate_qr_code, generate_referral_utm_link
+from app.services.referral import generate_qr_code, generate_referral_link
+from app.core.utm import UTMCampaign
+from app.services.poster import generate_referral_poster
 
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(verify_auth)])
 
@@ -132,12 +134,27 @@ def get_referral_qr_code(user_id: str, db: Session = Depends(get_db)) -> Respons
 
 
 @router.get("/{user_id}/referral/link")
-def get_referral_link(user_id: str, db: Session = Depends(get_db)) -> dict:
+def get_user_referral_link(
+    user_id: str,
+    campaign: UTMCampaign | None = None,
+    db: Session = Depends(get_db),
+) -> dict:
     user = crud.get_user(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
     return {
         "referral_code": user.referral_code,
-        "referral_link": generate_referral_utm_link(user.referral_code),
+        "referral_link": generate_referral_link(user.referral_code, campaign),
     }
+
+
+@router.get("/{user_id}/referral/poster")
+def get_referral_poster(user_id: str, db: Session = Depends(get_db)) -> Response:
+    user = crud.get_user(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user_name = f"{user.first_name} {user.last_name}"
+    poster_bytes = generate_referral_poster(user.referral_code, user_name)
+    return Response(content=poster_bytes, media_type="image/png")

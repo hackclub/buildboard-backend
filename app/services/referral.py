@@ -5,21 +5,26 @@ import qrcode
 from qrcode.image.styledpil import StyledPilImage
 from qrcode.image.styles.moduledrawers import RoundedModuleDrawer
 from app.core.config import get_settings
+from app.core.utm import UTMCampaign, get_utm_config
 
 
-def generate_referral_utm_link(
+def generate_referral_link(
     referral_code: str,
-    campaign: str = "poster",
-    source: str = "instagram",
-    medium: str = "qr_code",
+    campaign: UTMCampaign | None = None,
 ) -> str:
     settings = get_settings()
+    base_url = f"{settings.FRONTEND_URL}/r/{referral_code}"
+    
+    if campaign is None:
+        return base_url
+    
+    utm = get_utm_config(campaign)
     params = {
-        "utm_source": source,
-        "utm_medium": medium,
-        "utm_campaign": campaign,
+        "utm_source": utm.source,
+        "utm_medium": utm.medium,
+        "utm_campaign": utm.campaign,
     }
-    return f"{settings.FRONTEND_URL}/r/{referral_code}?{urlencode(params)}"
+    return f"{base_url}?{urlencode(params)}"
 
 
 def generate_qr_code(
@@ -28,7 +33,7 @@ def generate_qr_code(
     border: int = 2,
     as_base64: bool = False,
 ) -> bytes | str:
-    url = generate_referral_utm_link(referral_code)
+    url = generate_referral_link(referral_code)
     
     qr = qrcode.QRCode(
         version=1,
