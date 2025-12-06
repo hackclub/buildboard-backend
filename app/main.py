@@ -10,31 +10,31 @@ from app.api.routers.rsvps import router as rsvps_router
 from app.api.routers.hackatime import router as hackatime_router
 from app.api.routers.github import router as github_router
 from app.api.routers.analytics import router as analytics_router
+from app.api.routers.auth import router as auth_router
+from app.api.routers.roles import router as roles_router
 from app.db import Base, engine, SessionLocal
-from app.models.user import User
-from app.models.project import Project
-from app.models.review import Review
-from app.models.vote import Vote
-from app.models.rsvp import RSVP
+from app.models import User, Project, Review, Vote, RSVP, OTP
 from sqlalchemy import and_
 from app.migrate_db import run_migrations
 
 
 async def airtable_sync_task():
+    from sqlalchemy.orm import joinedload
     while True:
         try:
             db = SessionLocal()
             try:
-                projects = db.query(Project).filter(
+                projects = db.query(Project).options(
+                    joinedload(Project.reviews)
+                ).filter(
                     and_(
                         Project.sent_to_airtable == False,
-                        Project.shipped == True,
-                        Project.review_ids.isnot(None)
+                        Project.shipped == True
                     )
                 ).all()
-                
-                filtered_projects = [p for p in projects if p.review_ids and len(p.review_ids) > 0]
-                
+
+                filtered_projects = [p for p in projects if p.reviews and len(p.reviews) > 0]
+
                 if filtered_projects:
                     print(f"\n📦 Found {len(filtered_projects)} project(s) to sync to Airtable:")
                     for project in filtered_projects:
@@ -43,7 +43,7 @@ async def airtable_sync_task():
                 db.close()
         except Exception as e:
             print(f"❌ Airtable sync error: {e}")
-        
+
         await asyncio.sleep(10)
 
 
@@ -74,11 +74,12 @@ app.include_router(users_router)
 app.include_router(projects_router)
 app.include_router(votes_router)
 app.include_router(reviews_router)
-app.include_router(reviews_router)
 app.include_router(rsvps_router)
 app.include_router(hackatime_router)
 app.include_router(github_router)
 app.include_router(analytics_router)
+app.include_router(auth_router)
+app.include_router(roles_router)
 
 
 @app.get("/")

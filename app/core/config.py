@@ -7,6 +7,14 @@ class Settings(BaseSettings):
     MASTER_KEY: str
     FRONTEND_URL: str = "http://localhost:5173"
     
+    # Email settings (optional - if not set, OTPs will be logged)
+    SMTP_HOST: str | None = None
+    SMTP_PORT: int = 587
+    SMTP_USER: str | None = None
+    SMTP_PASSWORD: str | None = None
+    SMTP_FROM: str | None = None
+    SMTP_TLS: bool = True
+    
     class Config:
         env_file = ".env"
         extra = "ignore"

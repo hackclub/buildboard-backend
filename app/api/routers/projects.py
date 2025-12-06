@@ -41,21 +41,21 @@ def update_project(
     x_user_id: str = Header(...),
     db: Session = Depends(get_db)
 ) -> ProjectRead:
-    # Ownership check: users can only update their own projects (admins can update any)
     project = crud.get_project(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
     requesting_user = users_crud.get_user(db, x_user_id)
     if not requesting_user:
         raise HTTPException(status_code=404, detail="Requesting user not found")
-    
-    if project.user_id != x_user_id and not requesting_user.is_admin:
+
+    is_admin = users_crud.has_role(db, x_user_id, "admin")
+    if project.user_id != x_user_id and not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only update your own projects"
         )
-    
+
     return crud.update_project(db, project_id, project_in)
 
 
@@ -65,20 +65,40 @@ def delete_project(
     x_user_id: str = Header(...),
     db: Session = Depends(get_db)
 ) -> None:
-    # Ownership check: users can only delete their own projects (admins can delete any)
     project = crud.get_project(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
     requesting_user = users_crud.get_user(db, x_user_id)
     if not requesting_user:
         raise HTTPException(status_code=404, detail="Requesting user not found")
-    
-    if project.user_id != x_user_id and not requesting_user.is_admin:
+
+    is_admin = users_crud.has_role(db, x_user_id, "admin")
+    if project.user_id != x_user_id and not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only delete your own projects"
         )
-    
+
     crud.delete_project(db, project_id)
+    return None
+
+
+@router.post("/{project_id}/hackatime/{hackatime_project_id}", status_code=status.HTTP_201_CREATED)
+def link_hackatime_project(
+    project_id: str,
+    hackatime_project_id: str,
+    db: Session = Depends(get_db)
+) -> dict:
+    crud.link_hackatime_project(db, project_id, hackatime_project_id)
+    return {"message": "Hackatime project linked"}
+
+
+@router.delete("/{project_id}/hackatime/{hackatime_project_id}", status_code=status.HTTP_204_NO_CONTENT)
+def unlink_hackatime_project(
+    project_id: str,
+    hackatime_project_id: str,
+    db: Session = Depends(get_db)
+) -> None:
+    crud.unlink_hackatime_project(db, project_id, hackatime_project_id)
     return None
