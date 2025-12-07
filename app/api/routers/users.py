@@ -45,6 +45,11 @@ def _to_self_read(user: User) -> dict:
         } if user.profile else None,
         "roles": [{"role_id": r.role_id} for r in user.roles] if user.roles else [],
         "has_address": bool(user.addresses and len(user.addresses) > 0),
+        "storyline_completed_at": user.storyline_completed_at.isoformat() if user.storyline_completed_at else None,
+        "hackatime_completed_at": user.hackatime_completed_at.isoformat() if user.hackatime_completed_at else None,
+        "slack_linked_at": user.slack_linked_at.isoformat() if user.slack_linked_at else None,
+        "idv_completed_at": user.idv_completed_at.isoformat() if user.idv_completed_at else None,
+        "onboarding_completed_at": user.onboarding_completed_at.isoformat() if user.onboarding_completed_at else None,
         "created_at": user.created_at,
     }
 
@@ -261,3 +266,73 @@ def delete_user_address(
     
     crud.delete_user_address(db, address_id)
     return None
+
+
+@router.post("/{user_id}/storyline-complete", response_model=UserSelfRead)
+def complete_storyline(
+    user_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Mark storyline as complete - only self can mark"""
+    if x_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Can only complete your own storyline")
+
+    user = crud.complete_storyline(db, user_id)
+    return _to_self_read(user)
+
+
+@router.post("/{user_id}/hackatime-complete", response_model=UserSelfRead)
+def complete_hackatime(
+    user_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Mark hackatime setup as complete"""
+    if x_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Can only complete your own tasks")
+
+    user = crud.complete_hackatime(db, user_id)
+    return _to_self_read(user)
+
+
+@router.post("/{user_id}/slack-complete", response_model=UserSelfRead)
+def complete_slack_link(
+    user_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Mark slack link as complete"""
+    if x_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Can only complete your own tasks")
+
+    user = crud.complete_slack_link(db, user_id)
+    return _to_self_read(user)
+
+
+@router.post("/{user_id}/idv-complete", response_model=UserSelfRead)
+def complete_idv(
+    user_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Mark IDV as complete"""
+    if x_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Can only complete your own tasks")
+
+    user = crud.complete_idv(db, user_id)
+    return _to_self_read(user)
+
+
+@router.post("/{user_id}/onboarding-complete", response_model=UserSelfRead)
+def complete_onboarding(
+    user_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Mark onboarding as complete (all tasks done) - only self can mark"""
+    if x_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Can only complete your own onboarding")
+
+    user = crud.complete_onboarding(db, user_id)
+    return _to_self_read(user)

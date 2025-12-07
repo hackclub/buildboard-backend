@@ -12,28 +12,33 @@ from app.utils.handle_generator import generate_friendly_handle
 
 
 def create_user(db: Session, data: UserCreate) -> User:
+    from uuid import uuid4
+    
     user_data = data.model_dump(exclude={"profile", "address"})
     if not user_data.get("handle"):
         user_data["handle"] = generate_friendly_handle()
 
-    user = User(**user_data)
+    # Generate user_id upfront so we can use it for related records
+    user_id = str(uuid4())
+    user = User(user_id=user_id, **user_data)
     db.add(user)
 
-    profile = UserProfile(user_id=user.user_id, **data.profile.model_dump())
+    profile = UserProfile(user_id=user_id, **data.profile.model_dump())
     db.add(profile)
 
     if data.address:
-        address = UserAddress(user_id=user.user_id, **data.address.model_dump())
+        address = UserAddress(user_id=user_id, **data.address.model_dump())
         db.add(address)
 
     try:
         db.commit()
         db.refresh(user)
-    except IntegrityError:
+    except IntegrityError as e:
         db.rollback()
+        print(f"IntegrityError creating user: {e}")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Email or Slack ID already exists"
+            detail=f"Email or Slack ID already exists: {str(e.orig)}"
         )
     return user
 
@@ -204,3 +209,73 @@ def get_login_events(db: Session, user_id: str, limit: int = 100) -> Sequence[Us
     return db.query(UserLoginEvent).filter(
         UserLoginEvent.user_id == user_id
     ).order_by(UserLoginEvent.logged_in_at.desc()).limit(limit).all()
+
+
+def complete_storyline(db: Session, user_id: str) -> User:
+    from datetime import datetime, timezone
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not user.storyline_completed_at:
+        user.storyline_completed_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(user)
+
+    return user
+
+
+def complete_hackatime(db: Session, user_id: str) -> User:
+    from datetime import datetime, timezone
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not user.hackatime_completed_at:
+        user.hackatime_completed_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(user)
+
+    return user
+
+
+def complete_slack_link(db: Session, user_id: str) -> User:
+    from datetime import datetime, timezone
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not user.slack_linked_at:
+        user.slack_linked_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(user)
+
+    return user
+
+
+def complete_idv(db: Session, user_id: str) -> User:
+    from datetime import datetime, timezone
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not user.idv_completed_at:
+        user.idv_completed_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(user)
+
+    return user
+
+
+def complete_onboarding(db: Session, user_id: str) -> User:
+    from datetime import datetime, timezone
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not user.onboarding_completed_at:
+        user.onboarding_completed_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(user)
+
+    return user

@@ -12,7 +12,7 @@ class UserProfilePublic(BaseModel):
 
 class UserProfileCreate(BaseModel):
     first_name: str = Field(min_length=1, max_length=100)
-    last_name: str = Field(min_length=1, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
     avatar_url: str | None = None
     bio: str | None = None
     is_public: bool = False
@@ -90,6 +90,11 @@ class UserSelfRead(BaseModel):
     profile: UserProfilePublic | None = None
     roles: list[UserRoleRead] = []
     has_address: bool = False
+    storyline_completed_at: datetime | None = None
+    hackatime_completed_at: datetime | None = None
+    slack_linked_at: datetime | None = None
+    idv_completed_at: datetime | None = None
+    onboarding_completed_at: datetime | None = None
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 

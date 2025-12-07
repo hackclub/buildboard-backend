@@ -21,6 +21,11 @@ class User(Base):
     handle: Mapped[str | None] = mapped_column(String(50), unique=True, nullable=True, index=True)
     referral_code: Mapped[str] = mapped_column(String(8), unique=True, nullable=False, default=generate_referral_code, index=True)
     referred_by_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.user_id"), nullable=True, index=True)
+    storyline_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    hackatime_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    slack_linked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    idv_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    onboarding_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
