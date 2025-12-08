@@ -67,6 +67,14 @@ def get_user_by_handle(db: Session, handle: str) -> User | None:
     ).filter(User.handle == handle).first()
 
 
+def get_user_by_identity_vault_id(db: Session, identity_vault_id: str) -> User | None:
+    return db.query(User).options(
+        joinedload(User.profile),
+        joinedload(User.addresses),
+        joinedload(User.roles).joinedload(UserRole.role)
+    ).filter(User.identity_vault_id == identity_vault_id).first()
+
+
 def list_users(db: Session, skip: int = 0, limit: int = 100) -> Sequence[User]:
     return db.query(User).options(
         joinedload(User.profile),
@@ -264,6 +272,52 @@ def complete_idv(db: Session, user_id: str) -> User:
         db.commit()
         db.refresh(user)
 
+    return user
+
+
+def link_idv(
+    db: Session,
+    user_id: str,
+    identity_vault_id: str,
+    identity_vault_access_token: str,
+    idv_country: str | None = None,
+    verification_status: str | None = None,
+    ysws_eligible: bool | None = None
+) -> User:
+    from datetime import datetime, timezone
+    
+    existing = db.query(User).filter(
+        User.identity_vault_id == identity_vault_id,
+        User.user_id != user_id
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This identity is already linked to another account"
+        )
+    
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user.identity_vault_id = identity_vault_id
+    user.identity_vault_access_token = identity_vault_access_token
+    user.idv_country = idv_country
+    user.verification_status = verification_status
+    user.ysws_eligible = ysws_eligible
+    if not user.idv_completed_at:
+        user.idv_completed_at = datetime.now(timezone.utc)
+    
+    try:
+        db.commit()
+        db.refresh(user)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This identity is already linked to another account"
+        )
+    
     return user
 
 

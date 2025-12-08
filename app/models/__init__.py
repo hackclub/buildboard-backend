@@ -10,7 +10,6 @@ from app.models.hackatime_project import HackatimeProject
 from app.models.review import Review
 from app.models.vote import Vote
 from app.models.onboarding_event import OnboardingEvent
-from app.models.otp import OTP
 from app.models.rsvp import RSVP
 
 __all__ = [
@@ -26,6 +25,5 @@ __all__ = [
     "Review",
     "Vote",
     "OnboardingEvent",
-    "OTP",
     "RSVP",
 ]

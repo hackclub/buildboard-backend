@@ -7,7 +7,7 @@ from app.api.deps import get_db, verify_auth, verify_admin
 from app.schemas.user import (
     UserCreate, UserUpdate, UserPublicRead, UserSelfRead,
     UserProfileUpdate, UserAddressCreate, UserAddressUpdate,
-    UserExistsResponse, LoginRecordedResponse
+    UserExistsResponse, LoginRecordedResponse, LinkIDVRequest
 )
 from app.schemas.project import ProjectRead
 from app.crud import users as crud
@@ -64,6 +64,15 @@ def create_user(user_in: UserCreate, db: Session = Depends(get_db)) -> dict:
 def get_user_id_by_email(email: str, db: Session = Depends(get_db)) -> dict:
     """Returns only user_id - no PII"""
     user = crud.get_user_by_email(db, email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"user_id": user.user_id}
+
+
+@router.get("/by-identity-vault-id/{identity_vault_id}")
+def get_user_by_identity_vault_id(identity_vault_id: str, db: Session = Depends(get_db)) -> dict:
+    """Returns only user_id - no PII"""
+    user = crud.get_user_by_identity_vault_id(db, identity_vault_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return {"user_id": user.user_id}
@@ -321,6 +330,25 @@ def complete_idv(
         raise HTTPException(status_code=403, detail="Can only complete your own tasks")
 
     user = crud.complete_idv(db, user_id)
+    return _to_self_read(user)
+
+
+@router.post("/{user_id}/link-idv", response_model=UserSelfRead)
+def link_idv(
+    user_id: str,
+    data: LinkIDVRequest,
+    db: Session = Depends(get_db)
+) -> dict:
+    """Link identity vault to user account"""
+    user = crud.link_idv(
+        db,
+        user_id,
+        data.identity_vault_id,
+        data.identity_vault_access_token,
+        data.idv_country,
+        data.verification_status,
+        data.ysws_eligible
+    )
     return _to_self_read(user)
 
 

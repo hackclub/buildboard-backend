@@ -10,10 +10,9 @@ from app.api.routers.rsvps import router as rsvps_router
 from app.api.routers.hackatime import router as hackatime_router
 from app.api.routers.github import router as github_router
 from app.api.routers.analytics import router as analytics_router
-from app.api.routers.auth import router as auth_router
 from app.api.routers.roles import router as roles_router
 from app.db import Base, engine, SessionLocal
-from app.models import User, Project, Review, Vote, RSVP, OTP
+from app.models import User, Project, Review, Vote, RSVP
 from sqlalchemy import and_
 from app.migrate_db import run_migrations
 
@@ -78,7 +77,6 @@ app.include_router(rsvps_router)
 app.include_router(hackatime_router)
 app.include_router(github_router)
 app.include_router(analytics_router)
-app.include_router(auth_router)
 app.include_router(roles_router)
 
 

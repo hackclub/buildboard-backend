@@ -63,8 +63,20 @@ class UserCreate(BaseModel):
     email: EmailStr
     slack_id: str | None = Field(default=None, max_length=64)
     handle: str | None = Field(default=None, max_length=50)
+    identity_vault_id: str | None = Field(default=None, max_length=255)
+    identity_vault_access_token: str | None = Field(default=None, max_length=512)
+    verification_status: str | None = Field(default=None, max_length=32)
+    ysws_eligible: bool | None = None
     profile: UserProfileCreate
     address: UserAddressCreate | None = None
+
+
+class LinkIDVRequest(BaseModel):
+    identity_vault_id: str = Field(max_length=255)
+    identity_vault_access_token: str = Field(max_length=512)
+    idv_country: str | None = Field(default=None, max_length=10)
+    verification_status: str | None = Field(default=None, max_length=32)
+    ysws_eligible: bool | None = None
 
 
 class UserUpdate(BaseModel):
@@ -95,6 +107,8 @@ class UserSelfRead(BaseModel):
     slack_linked_at: datetime | None = None
     idv_completed_at: datetime | None = None
     onboarding_completed_at: datetime | None = None
+    verification_status: str | None = None
+    ysws_eligible: bool | None = None
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
