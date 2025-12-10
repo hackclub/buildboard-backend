@@ -34,10 +34,10 @@ target_metadata = Base.metadata
 
 # Load the database URL from settings
 settings = get_settings()
-# Ensure we escape percent signs if they are used in the password
-# (though pydantic settings likely handles the string as is, alembic/sqlalchemy might interpret %)
-# But for now we'll just set it.
-config.set_main_option("sqlalchemy.url", str(settings.DATABASE_URL))
+database_url = str(settings.DATABASE_URL)
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+config.set_main_option("sqlalchemy.url", database_url)
 
 
 def run_migrations_offline() -> None:
