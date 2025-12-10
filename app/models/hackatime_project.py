@@ -4,6 +4,7 @@ from sqlalchemy import String, Integer, DateTime, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db import Base
 
+
 class HackatimeProject(Base):
     __tablename__ = "hackatime_projects"
 
@@ -15,3 +16,4 @@ class HackatimeProject(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     user: Mapped["User"] = relationship("User", back_populates="hackatime_projects")
+    project_links: Mapped[list["ProjectHackatimeLink"]] = relationship("ProjectHackatimeLink", back_populates="hackatime_project", cascade="all, delete-orphan")

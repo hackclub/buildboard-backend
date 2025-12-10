@@ -60,7 +60,8 @@ def update_review(
         raise HTTPException(status_code=404, detail="Requesting user not found")
     
     # Ownership check: only the reviewer who created it OR an admin can update
-    if review.reviewer_user_id != x_user_id and not requesting_user.is_admin:
+    is_admin = users_crud.has_role(db, x_user_id, "admin")
+    if review.reviewer_user_id != x_user_id and not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only update your own reviews"
@@ -91,7 +92,8 @@ def delete_review(
         raise HTTPException(status_code=404, detail="Requesting user not found")
     
     # Ownership check: only the reviewer who created it OR an admin can delete
-    if review.reviewer_user_id != x_user_id and not requesting_user.is_admin:
+    is_admin = users_crud.has_role(db, x_user_id, "admin")
+    if review.reviewer_user_id != x_user_id and not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only delete your own reviews"

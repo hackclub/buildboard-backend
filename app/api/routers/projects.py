@@ -2,7 +2,8 @@ from typing import List
 from fastapi import APIRouter, Depends, Query, status, HTTPException, Header
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, verify_auth
-from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
+from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate, UpdateHackatimeProjectsRequest
+from app.schemas.hackatime import HackatimeProject
 from app.crud import projects as crud
 from app.crud import users as users_crud
 
@@ -41,21 +42,21 @@ def update_project(
     x_user_id: str = Header(...),
     db: Session = Depends(get_db)
 ) -> ProjectRead:
-    # Ownership check: users can only update their own projects (admins can update any)
     project = crud.get_project(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
     requesting_user = users_crud.get_user(db, x_user_id)
     if not requesting_user:
         raise HTTPException(status_code=404, detail="Requesting user not found")
-    
-    if project.user_id != x_user_id and not requesting_user.is_admin:
+
+    is_admin = users_crud.has_role(db, x_user_id, "admin")
+    if project.user_id != x_user_id and not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only update your own projects"
         )
-    
+
     return crud.update_project(db, project_id, project_in)
 
 
@@ -65,20 +66,53 @@ def delete_project(
     x_user_id: str = Header(...),
     db: Session = Depends(get_db)
 ) -> None:
-    # Ownership check: users can only delete their own projects (admins can delete any)
     project = crud.get_project(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
     requesting_user = users_crud.get_user(db, x_user_id)
     if not requesting_user:
         raise HTTPException(status_code=404, detail="Requesting user not found")
-    
-    if project.user_id != x_user_id and not requesting_user.is_admin:
+
+    is_admin = users_crud.has_role(db, x_user_id, "admin")
+    if project.user_id != x_user_id and not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only delete your own projects"
         )
-    
+
     crud.delete_project(db, project_id)
     return None
+
+
+@router.put("/{project_id}/hackatime-projects", response_model=ProjectRead)
+def update_hackatime_projects(
+    project_id: str,
+    data: UpdateHackatimeProjectsRequest,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> ProjectRead:
+    """
+    Update hackatime projects linked to a project.
+    Validates ownership, checks for conflicts, and calculates hours.
+    """
+    return crud.update_hackatime_projects(db, project_id, x_user_id, data.project_names)
+
+
+@router.get("/{project_id}/hackatime-projects/linked", response_model=List[HackatimeProject])
+def get_linked_hackatime_projects(
+    project_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> List[HackatimeProject]:
+    """Get hackatime projects linked to this project."""
+    return crud.get_linked_hackatime_projects(db, x_user_id, project_id)
+
+
+@router.get("/hackatime-projects/unlinked", response_model=List[HackatimeProject])
+def get_unlinked_hackatime_projects(
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> List[HackatimeProject]:
+    """Get hackatime projects NOT linked to any of user's projects."""
+    return crud.get_unlinked_hackatime_projects(db, x_user_id)

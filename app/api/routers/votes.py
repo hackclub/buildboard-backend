@@ -60,12 +60,13 @@ def update_vote(
         raise HTTPException(status_code=404, detail="Requesting user not found")
     
     # Ownership check: only the user who cast the vote OR an admin can update
-    if vote.user_id != x_user_id and not requesting_user.is_admin:
+    is_admin = users_crud.has_role(db, x_user_id, "admin")
+    if vote.user_id != x_user_id and not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only update your own votes"
         )
-    
+
     return crud.update_vote(db, vote_id, vote_in)
 
 
@@ -91,11 +92,12 @@ def delete_vote(
         raise HTTPException(status_code=404, detail="Requesting user not found")
     
     # Ownership check: only the user who cast the vote OR an admin can delete
-    if vote.user_id != x_user_id and not requesting_user.is_admin:
+    is_admin = users_crud.has_role(db, x_user_id, "admin")
+    if vote.user_id != x_user_id and not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only delete your own votes"
         )
-    
+
     crud.delete_vote(db, vote_id)
     return None

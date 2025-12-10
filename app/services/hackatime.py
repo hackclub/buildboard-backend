@@ -1,82 +1,69 @@
 import httpx
 import logging
-from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from sqlalchemy.dialects.postgresql import insert
 from app.models.hackatime_project import HackatimeProject
 from app.models.user import User
+from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
+
 
 async def fetch_hackatime_stats(user_id: str, slack_id: str, db: Session) -> list[HackatimeProject]:
     """
-    Fetches Hackatime stats for a user and updates the local database.
+    Fetches Hackatime stats for a user using the Admin API and updates the local database.
     """
     if not slack_id:
         logger.warning(f"User {user_id} has no slack_id, cannot fetch Hackatime stats")
         return []
 
-    # Calculate start date (e.g., from beginning of event or a reasonable lookback)
-    # Using the date from the reference code: 2025-06-16, but let's use a more generic one or config
-    # For now, let's default to a fixed date or just recent history if not specified.
-    # The reference code used 2025-06-16. Let's use a hardcoded date for now as per reference.
-    start_date = "2025-06-16T00:00:00Z" 
-    
-    url = f"https://hackatime.hackclub.com/api/v1/users/{slack_id}/stats"
-    params = {
-        "features": "projects",
-        "start_date": start_date,
-        "test_param": "true"
+    if not settings.HACKATIME_API_KEY:
+        logger.warning("HACKATIME_API_KEY not configured, cannot fetch Hackatime stats")
+        return []
+
+    # Use the Admin API to get user projects
+    url = f"{settings.HACKATIME_ADMIN_API_URL}/user/projects"
+    params = {"id": slack_id}
+    headers = {
+        "Authorization": f"Bearer {settings.HACKATIME_API_KEY}"
     }
 
-    # TODO: Add HACKATIME_BYPASS_KEYS if needed from env
-    headers = {} 
-    
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(url, params=params, headers=headers, timeout=10.0)
-            
+
         if response.status_code != 200:
             logger.error(f"Failed to fetch Hackatime stats for {slack_id}: {response.status_code} {response.text}")
             return []
 
-        data = response.json()
-        if data.get("data", {}).get("status") != "ok":
-             logger.warning(f"Hackatime API returned non-ok status for {slack_id}")
-             return []
-             
-        projects_data = data.get("data", {}).get("projects", [])
+        projects_data = response.json()
         
-        # Process projects
-        # We need to aggregate by name because the API might return multiple entries? 
-        # Reference code did aggregation.
-        
+        if not isinstance(projects_data, list):
+            logger.warning(f"Hackatime API returned unexpected format for {slack_id}: {type(projects_data)}")
+            return []
+
+        # Process projects - aggregate by name
         aggregated_projects = {}
         for p in projects_data:
             name = p.get("name")
             if not name or name in ["<<LAST_PROJECT>>", "Other"]:
                 continue
-                
-            seconds = p.get("total_seconds", 0)
+
+            # Admin API returns total_duration in seconds
+            seconds = p.get("total_duration", 0)
             if name in aggregated_projects:
                 aggregated_projects[name] += seconds
             else:
                 aggregated_projects[name] = seconds
 
         # Upsert into DB
-        # Since we are using SQLite (likely) or Postgres, we need to handle upsert carefully.
-        # Buildboard seems to use Postgres based on the schema file (pg_catalog).
-        # But let's check if we can use standard SQLAlchemy merge or specific dialect.
-        # The reference used upsert_all.
-        
         updated_projects = []
         for name, seconds in aggregated_projects.items():
-            # Check if exists
             existing = db.query(HackatimeProject).filter(
                 HackatimeProject.user_id == user_id,
                 HackatimeProject.name == name
             ).first()
-            
+
             if existing:
                 existing.seconds = seconds
                 updated_projects.append(existing)
@@ -88,12 +75,51 @@ async def fetch_hackatime_stats(user_id: str, slack_id: str, db: Session) -> lis
                 )
                 db.add(new_project)
                 updated_projects.append(new_project)
-        
+
         db.commit()
-        
+
         # Return all current projects for the user
         return db.query(HackatimeProject).filter(HackatimeProject.user_id == user_id).all()
 
     except Exception as e:
         logger.error(f"Error fetching Hackatime stats for {user_id}: {e}")
         return []
+
+
+async def lookup_hackatime_account_by_email(email: str) -> str | None:
+    """
+    Look up a Hackatime account ID by email address using the Admin API.
+    Returns the Hackatime user ID if found, None otherwise.
+    """
+    if not settings.HACKATIME_API_KEY:
+        logger.warning("HACKATIME_API_KEY not configured, cannot lookup Hackatime account")
+        return None
+
+    url = f"{settings.HACKATIME_ADMIN_API_URL}/execute"
+    headers = {
+        "Authorization": f"Bearer {settings.HACKATIME_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    # Query to find user by email
+    payload = {
+        "query": f"SELECT id FROM users WHERE email = '{email}' LIMIT 1"
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers=headers, json=payload, timeout=10.0)
+
+        if response.status_code != 200:
+            logger.error(f"Failed to lookup Hackatime account for {email}: {response.status_code}")
+            return None
+
+        data = response.json()
+        if data and len(data) > 0 and "id" in data[0]:
+            return data[0]["id"]
+        
+        return None
+
+    except Exception as e:
+        logger.error(f"Error looking up Hackatime account for {email}: {e}")
+        return None

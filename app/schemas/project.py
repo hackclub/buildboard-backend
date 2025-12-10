@@ -1,5 +1,9 @@
 from datetime import datetime
-from pydantic import BaseModel, Field, HttpUrl, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict
+
+
+class UpdateHackatimeProjectsRequest(BaseModel):
+    project_names: list[str] = Field(min_length=0)
 
 
 class ProjectBase(BaseModel):
@@ -13,13 +17,14 @@ class ProjectBase(BaseModel):
     paper_url: str | None = None
     shipped: bool = False
     sent_to_airtable: bool = False
-    review_ids: list[str] | None = None
-    hackatime_project_keys: list[str] | None = None
+    github_installation_id: str | None = None
+    github_repo_path: str | None = None
     time_spent: int | None = Field(default=None, ge=0)
 
 
 class ProjectCreate(ProjectBase):
     user_id: str
+    hackatime_projects: list[str] | None = None
 
 
 class ProjectUpdate(BaseModel):
@@ -33,14 +38,16 @@ class ProjectUpdate(BaseModel):
     paper_url: str | None = None
     shipped: bool | None = None
     sent_to_airtable: bool | None = None
-    review_ids: list[str] | None = None
-    hackatime_project_keys: list[str] | None = None
+    github_installation_id: str | None = None
+    github_repo_path: str | None = None
     time_spent: int | None = Field(default=None, ge=0)
 
 
 class ProjectRead(ProjectBase):
     project_id: str
     user_id: str
+    hackatime_projects: list[str] | None = None
+    hackatime_hours: float | None = None
     created_at: datetime
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)

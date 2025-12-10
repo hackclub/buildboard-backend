@@ -1,271 +1,395 @@
-from typing import List, Dict
+from typing import List
 from datetime import date, timedelta
 from fastapi import APIRouter, Depends, Query, status, HTTPException, Header
-from fastapi.responses import Response
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app.api.deps import get_db, verify_auth, verify_admin
-from app.schemas.user import UserCreate, UserRead, UserUpdate, UserPublicRead
+from app.schemas.user import (
+    UserCreate, UserUpdate, UserPublicRead, UserSelfRead,
+    UserProfileUpdate, UserAddressCreate, UserAddressUpdate,
+    UserExistsResponse, LoginRecordedResponse, LinkIDVRequest
+)
 from app.schemas.project import ProjectRead
 from app.crud import users as crud
 from app.models.user import User
-from app.services.referral import generate_qr_code, generate_referral_link
-from app.core.utm import UTMCampaign
-from app.services.poster import generate_referral_poster
+from app.models.user_login_event import UserLoginEvent
+from app.utils.slack import get_slack_username
 
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(verify_auth)])
 
 
-@router.post("", response_model=UserRead, status_code=status.HTTP_201_CREATED)
-def create_user(user_in: UserCreate, db: Session = Depends(get_db)) -> UserRead:
-    return crud.create_user(db, user_in)
+def _to_public_read(user: User) -> dict:
+    """Convert user to public read format - strips all PII"""
+    return {
+        "user_id": user.user_id,
+        "handle": user.handle,
+        "profile": {
+            "avatar_url": user.profile.avatar_url if user.profile else None,
+            "bio": user.profile.bio if user.profile else None,
+            "is_public": user.profile.is_public if user.profile else False,
+        } if user.profile else None,
+        "roles": [{"role_id": r.role_id} for r in user.roles] if user.roles else [],
+        "created_at": user.created_at,
+    }
 
 
-@router.get("/{user_id}", response_model=UserRead)
-def get_user(user_id: str, db: Session = Depends(get_db)) -> UserRead:
+def _to_self_read(user: User) -> dict:
+    """Convert user to self read format - includes what user needs about themselves"""
+    return {
+        "user_id": user.user_id,
+        "handle": user.handle,
+        "referral_code": user.referral_code,
+        "profile": {
+            "avatar_url": user.profile.avatar_url if user.profile else None,
+            "bio": user.profile.bio if user.profile else None,
+            "is_public": user.profile.is_public if user.profile else False,
+        } if user.profile else None,
+        "roles": [{"role_id": r.role_id} for r in user.roles] if user.roles else [],
+        "has_address": bool(user.addresses and len(user.addresses) > 0),
+        "storyline_completed_at": user.storyline_completed_at.isoformat() if user.storyline_completed_at else None,
+        "hackatime_completed_at": user.hackatime_completed_at.isoformat() if user.hackatime_completed_at else None,
+        "slack_linked_at": user.slack_linked_at.isoformat() if user.slack_linked_at else None,
+        "idv_completed_at": user.idv_completed_at.isoformat() if user.idv_completed_at else None,
+        "onboarding_completed_at": user.onboarding_completed_at.isoformat() if user.onboarding_completed_at else None,
+        "created_at": user.created_at,
+    }
+
+
+@router.post("", response_model=UserSelfRead, status_code=status.HTTP_201_CREATED)
+def create_user(user_in: UserCreate, db: Session = Depends(get_db)) -> dict:
+    user = crud.create_user(db, user_in)
+    return _to_self_read(user)
+
+
+@router.get("/by-email/{email}")
+def get_user_id_by_email(email: str, db: Session = Depends(get_db)) -> dict:
+    """Returns only user_id - no PII"""
+    user = crud.get_user_by_email(db, email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"user_id": user.user_id}
+
+
+@router.get("/by-identity-vault-id/{identity_vault_id}")
+def get_user_by_identity_vault_id(identity_vault_id: str, db: Session = Depends(get_db)) -> dict:
+    """Returns only user_id - no PII"""
+    user = crud.get_user_by_identity_vault_id(db, identity_vault_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"user_id": user.user_id}
+
+
+@router.get("/stats/logins", dependencies=[Depends(verify_admin)])
+def get_login_stats(db: Session = Depends(get_db)) -> dict:
+    """Admin only - returns aggregate counts, no PII"""
+    start_date = date(2025, 10, 28)
+    today = date.today()
+
+    stats = {}
+    current_date = start_date
+
+    while current_date <= today:
+        date_str = current_date.isoformat()
+        count = db.query(UserLoginEvent).filter(
+            func.date(UserLoginEvent.logged_in_at) == current_date
+        ).distinct(UserLoginEvent.user_id).count()
+        stats[date_str] = count
+        current_date += timedelta(days=1)
+
+    return stats
+
+
+@router.get("/{user_id}", response_model=UserSelfRead)
+def get_user(
+    user_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Get user - returns self read if requesting own data, public otherwise"""
     user = crud.get_user(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
-
-
-@router.get("/handle/{handle}", response_model=UserRead)
-def get_user_by_handle(
-    handle: str,
-    x_user_id: str | None = Header(default=None),
-    db: Session = Depends(get_db)
-) -> UserRead:
-    user = crud.get_user_by_handle(db, handle)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
     
-    # Privacy check
-    # If user is public, allow access
-    # If user is private, only allow if requester is the owner
-    if not user.is_public:
-        if not x_user_id or x_user_id != user.user_id:
-            raise HTTPException(
-                status_code=403,
-                detail="This profile is private"
-            )
-            
-    return user
+    # If requesting own data, return self view
+    if x_user_id == user_id:
+        return _to_self_read(user)
+    
+    # Otherwise return public view (if profile is public)
+    if user.profile and user.profile.is_public:
+        return _to_public_read(user)
+    
+    raise HTTPException(status_code=403, detail="Profile is private")
 
 
-@router.get("", response_model=List[UserPublicRead])
+@router.get("", response_model=List[UserPublicRead], dependencies=[Depends(verify_admin)])
 def list_users(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db)
-) -> List[UserPublicRead]:
-    """List users - returns public info only (no PII like addresses/emails)"""
-    return list(crud.list_users(db, skip=skip, limit=limit))
+) -> List[dict]:
+    """Admin only - returns public info only"""
+    users = crud.list_users(db, skip=skip, limit=limit)
+    return [_to_public_read(u) for u in users]
 
 
-@router.patch("/{user_id}", response_model=UserRead)
+@router.patch("/{user_id}", response_model=UserSelfRead)
 def update_user(
     user_id: str,
     user_in: UserUpdate,
     x_user_id: str = Header(...),
     db: Session = Depends(get_db)
-) -> UserRead:
-    # Ownership check: users can only update their own profile (admins can update anyone)
-    requesting_user = crud.get_user(db, x_user_id)
-    if not requesting_user:
-        raise HTTPException(status_code=404, detail="Requesting user not found")
+) -> dict:
+    """Update user - only self can update"""
+    if x_user_id != user_id:
+        is_admin = crud.has_role(db, x_user_id, "admin")
+        if not is_admin:
+            raise HTTPException(status_code=403, detail="Can only update your own account")
     
-    if x_user_id != user_id and not requesting_user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only update your own profile"
-        )
-    
-    # SECURITY: Strip privileged fields - only admins can modify these
-    PRIVILEGED_FIELDS = {"is_admin", "is_reviewer", "role"}
-    if not requesting_user.is_admin:
-        update_data = user_in.model_dump(exclude_unset=True)
-        for field in PRIVILEGED_FIELDS:
-            if field in update_data:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"You cannot modify the '{field}' field"
-                )
-    
-    return crud.update_user(db, user_id, user_in)
+    user = crud.update_user(db, user_id, user_in)
+    return _to_self_read(user)
 
 
-@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(
+@router.patch("/{user_id}/profile", response_model=UserSelfRead)
+def update_user_profile(
     user_id: str,
+    profile_in: UserProfileUpdate,
     x_user_id: str = Header(...),
     db: Session = Depends(get_db)
-) -> None:
-    # Ownership check: users can only delete their own account (admins can delete anyone)
-    requesting_user = crud.get_user(db, x_user_id)
-    if not requesting_user:
-        raise HTTPException(status_code=404, detail="Requesting user not found")
+) -> dict:
+    """Update profile - only self can update"""
+    if x_user_id != user_id:
+        is_admin = crud.has_role(db, x_user_id, "admin")
+        if not is_admin:
+            raise HTTPException(status_code=403, detail="Can only update your own profile")
     
-    if x_user_id != user_id and not requesting_user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only delete your own account"
-        )
-    
+    crud.update_user_profile(db, user_id, profile_in)
+    user = crud.get_user(db, user_id)
+    return _to_self_read(user)
+
+
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_admin)])
+def delete_user(user_id: str, db: Session = Depends(get_db)) -> None:
     crud.delete_user(db, user_id)
     return None
 
 
-@router.post("/{user_id}/makeadmin", response_model=UserRead, dependencies=[Depends(verify_admin)])
-def make_admin(user_id: str, db: Session = Depends(get_db)) -> UserRead:
-    return crud.set_user_admin(db, user_id, True)
+@router.post("/{user_id}/roles/{role_id}", status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_admin)])
+def add_user_role(user_id: str, role_id: str, db: Session = Depends(get_db)) -> dict:
+    crud.add_user_role(db, user_id, role_id)
+    return {"message": f"Role {role_id} added"}
+
+
+@router.delete("/{user_id}/roles/{role_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_admin)])
+def remove_user_role(user_id: str, role_id: str, db: Session = Depends(get_db)) -> None:
+    crud.remove_user_role(db, user_id, role_id)
+    return None
 
 
 @router.get("/{user_id}/projects", response_model=List[ProjectRead])
-def list_user_projects(user_id: str, db: Session = Depends(get_db)) -> List[ProjectRead]:
+def list_user_projects(
+    user_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> List[ProjectRead]:
+    """Get user's projects - only self or admin"""
+    if x_user_id != user_id:
+        is_admin = crud.has_role(db, x_user_id, "admin")
+        if not is_admin:
+            raise HTTPException(status_code=403, detail="Can only view your own projects")
+    
     user = crud.get_user(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user.projects
 
 
-@router.get("/by-email/{email}", dependencies=[Depends(verify_admin)])
-def get_user_id_by_email(email: str, db: Session = Depends(get_db)) -> dict:
-    """Get user ID by email - admin only to prevent email enumeration"""
-    from app.models.user import User
-    user = db.query(User).filter(User.email == email).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return {"user_id": user.user_id}
-
-
-@router.get("/{user_id}/exists")
-def check_user_exists(user_id: str, db: Session = Depends(get_db)) -> dict:
+@router.get("/{user_id}/exists", response_model=UserExistsResponse)
+def check_user_exists(user_id: str, db: Session = Depends(get_db)) -> UserExistsResponse:
     user = crud.get_user(db, user_id)
-    return {"exists": user is not None}
+    return UserExistsResponse(exists=user is not None)
 
 
-@router.post("/{user_id}/loggedin", status_code=status.HTTP_200_OK)
-def record_login(user_id: str, db: Session = Depends(get_db)) -> dict:
-    user = db.query(User).filter(User.user_id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    today = date.today().isoformat()
-    
-    print(f"BEFORE: user_id={user_id}, dates_logged_in={user.dates_logged_in}")
-    
-    dates = user.dates_logged_in or []
-    
-    if today in dates:
-        return {"message": "Already logged in today", "date": today}
-    
-    user.dates_logged_in = dates + [today]
-    print(f"AFTER ASSIGNMENT: dates_logged_in={user.dates_logged_in}")
-    
-    db.commit()
-    
-    db.refresh(user)
-    print(f"AFTER COMMIT: dates_logged_in={user.dates_logged_in}")
-    
-    return {"message": "Login recorded", "date": today}
-
-
-@router.get("/stats/logins", dependencies=[Depends(verify_admin)])
-def get_login_stats(db: Session = Depends(get_db)) -> Dict[str, int]:
-    start_date = date(2025, 10, 28)
-    today = date.today()
-    
-    stats = {}
-    current_date = start_date
-    
-    while current_date <= today:
-        date_str = current_date.isoformat()
-        count = db.query(User).filter(User.dates_logged_in.contains([date_str])).count()
-        stats[date_str] = count
-        current_date += timedelta(days=1)
-    
-    return stats
-
-
-@router.get("/role/{role}", response_model=List[UserPublicRead])
-def list_users_by_role(role: str, db: Session = Depends(get_db)) -> List[UserPublicRead]:
-    """List all users with a specific role (e.g., 'author') - returns public info only"""
-    users = db.query(User).filter(User.role == role).all()
-    return list(users)
-
-
-@router.post("/{user_id}/assign-author/{author_id}", response_model=UserRead)
-def assign_author(
+@router.post("/{user_id}/loggedin", response_model=LoginRecordedResponse)
+def record_login(
     user_id: str,
-    author_id: str,
     x_user_id: str = Header(...),
     db: Session = Depends(get_db)
-) -> UserRead:
-    """
-    Assign an author to a user.
+) -> LoginRecordedResponse:
+    """Record login - only self can record"""
+    if x_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Can only record your own login")
     
-    SECURITY: Ownership check - users can only assign authors to their own account.
-    Without this, any authenticated user could modify anyone's author assignment (IDOR vulnerability).
-    Admins can assign authors to any user.
-    """
+    login_event = crud.record_login(db, user_id)
+    return LoginRecordedResponse(
+        message="Login recorded",
+        logged_in_at=login_event.logged_in_at.isoformat()
+    )
+
+
+@router.post("/{user_id}/addresses", status_code=status.HTTP_201_CREATED)
+def create_user_address(
+    user_id: str,
+    address_in: UserAddressCreate,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Create address - only self can create. Returns success, not the address data."""
+    if x_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Can only add addresses to your own account")
+    
+    crud.create_user_address(db, user_id, address_in)
+    return {"message": "Address added"}
+
+
+@router.patch("/addresses/{address_id}")
+def update_user_address(
+    address_id: str,
+    address_in: UserAddressUpdate,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Update address - only owner can update. Returns success, not the address data."""
+    from app.models.user_address import UserAddress
+    address = db.get(UserAddress, address_id)
+    if not address:
+        raise HTTPException(status_code=404, detail="Address not found")
+    if address.user_id != x_user_id:
+        raise HTTPException(status_code=403, detail="Can only update your own addresses")
+    
+    crud.update_user_address(db, address_id, address_in)
+    return {"message": "Address updated"}
+
+
+@router.delete("/addresses/{address_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user_address(
+    address_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> None:
+    """Delete address - only owner can delete"""
+    from app.models.user_address import UserAddress
+    address = db.get(UserAddress, address_id)
+    if not address:
+        raise HTTPException(status_code=404, detail="Address not found")
+    if address.user_id != x_user_id:
+        raise HTTPException(status_code=403, detail="Can only delete your own addresses")
+    
+    crud.delete_user_address(db, address_id)
+    return None
+
+
+@router.post("/{user_id}/storyline-complete", response_model=UserSelfRead)
+def complete_storyline(
+    user_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Mark storyline as complete - only self can mark"""
+    if x_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Can only complete your own storyline")
+
+    user = crud.complete_storyline(db, user_id)
+    return _to_self_read(user)
+
+
+@router.post("/{user_id}/hackatime-complete", response_model=UserSelfRead)
+def complete_hackatime(
+    user_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Mark hackatime setup as complete"""
+    if x_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Can only complete your own tasks")
+
+    user = crud.complete_hackatime(db, user_id)
+    return _to_self_read(user)
+
+
+@router.post("/{user_id}/slack-complete", response_model=UserSelfRead)
+def complete_slack_link(
+    user_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Mark slack link as complete"""
+    if x_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Can only complete your own tasks")
+
+    user = crud.complete_slack_link(db, user_id)
+    return _to_self_read(user)
+
+
+@router.post("/{user_id}/idv-complete", response_model=UserSelfRead)
+def complete_idv(
+    user_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Mark IDV as complete"""
+    if x_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Can only complete your own tasks")
+
+    user = crud.complete_idv(db, user_id)
+    return _to_self_read(user)
+
+
+@router.post("/{user_id}/link-idv", response_model=UserSelfRead)
+def link_idv(
+    user_id: str,
+    data: LinkIDVRequest,
+    db: Session = Depends(get_db)
+) -> dict:
+    """Link identity vault to user account"""
+    user = crud.link_idv(
+        db,
+        user_id,
+        data.identity_vault_id,
+        data.identity_vault_access_token,
+        data.idv_country,
+        data.verification_status,
+        data.ysws_eligible
+    )
+    return _to_self_read(user)
+
+
+@router.post("/{user_id}/onboarding-complete", response_model=UserSelfRead)
+def complete_onboarding(
+    user_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Mark onboarding as complete (all tasks done) - only self can mark"""
+    if x_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Can only complete your own onboarding")
+
+    user = crud.complete_onboarding(db, user_id)
+    return _to_self_read(user)
+
+
+@router.post("/{user_id}/sync-handle-from-slack", response_model=UserSelfRead)
+def sync_handle_from_slack(
+    user_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Sync handle from Slack username - requires user to have slack_id"""
+    if x_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Can only sync your own handle")
+    
     user = crud.get_user(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    requesting_user = crud.get_user(db, x_user_id)
-    if not requesting_user:
-        raise HTTPException(status_code=404, detail="Requesting user not found")
+    if not user.slack_id:
+        raise HTTPException(status_code=400, detail="No Slack ID linked. Please join Slack first.")
     
-    # Ownership check: only the account owner OR an admin can assign authors
-    if x_user_id != user_id and not requesting_user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only assign authors to your own account"
-        )
+    slack_username = get_slack_username(user.slack_id)
+    if not slack_username:
+        raise HTTPException(status_code=502, detail="Failed to fetch Slack username. Please try again later.")
     
-    author = crud.get_user(db, author_id)
-    if not author:
-        raise HTTPException(status_code=404, detail="Author not found")
-    if author.role != "author":
-        raise HTTPException(status_code=400, detail="Selected user is not an author")
-    
-    user.assigned_author_id = author_id
+    user.handle = slack_username
     db.commit()
     db.refresh(user)
-    return user
-
-
-@router.get("/{user_id}/referral/qr")
-def get_referral_qr_code(user_id: str, db: Session = Depends(get_db)) -> Response:
-    user = crud.get_user(db, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
     
-    qr_bytes = generate_qr_code(user.referral_code)
-    return Response(content=qr_bytes, media_type="image/png")
-
-
-@router.get("/{user_id}/referral/link")
-def get_user_referral_link(
-    user_id: str,
-    campaign: UTMCampaign | None = None,
-    db: Session = Depends(get_db),
-) -> dict:
-    user = crud.get_user(db, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    return {
-        "referral_code": user.referral_code,
-        "referral_link": generate_referral_link(user.referral_code, campaign),
-    }
-
-
-@router.get("/{user_id}/referral/poster")
-def get_referral_poster(user_id: str, db: Session = Depends(get_db)) -> Response:
-    user = crud.get_user(db, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    user_name = f"{user.first_name} {user.last_name}"
-    poster_bytes = generate_referral_poster(user.referral_code, user_name)
-    return Response(content=poster_bytes, media_type="image/png")
+    return _to_self_read(user)
