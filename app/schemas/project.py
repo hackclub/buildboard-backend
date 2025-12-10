@@ -2,12 +2,8 @@ from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
 
 
-class ProjectHackatimeLinkRead(BaseModel):
-    id: str
-    project_id: str
-    hackatime_project_id: str
-    created_at: datetime
-    model_config = ConfigDict(from_attributes=True)
+class UpdateHackatimeProjectsRequest(BaseModel):
+    project_names: list[str] = Field(min_length=0)
 
 
 class ProjectBase(BaseModel):
@@ -28,7 +24,7 @@ class ProjectBase(BaseModel):
 
 class ProjectCreate(ProjectBase):
     user_id: str
-    hackatime_project_ids: list[str] | None = None
+    hackatime_projects: list[str] | None = None
 
 
 class ProjectUpdate(BaseModel):
@@ -50,7 +46,8 @@ class ProjectUpdate(BaseModel):
 class ProjectRead(ProjectBase):
     project_id: str
     user_id: str
-    hackatime_links: list[ProjectHackatimeLinkRead] = []
+    hackatime_projects: list[str] | None = None
+    hackatime_hours: float | None = None
     created_at: datetime
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)

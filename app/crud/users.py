@@ -8,15 +8,10 @@ from app.models.user_address import UserAddress
 from app.models.user_role import UserRole
 from app.models.user_login_event import UserLoginEvent
 from app.schemas.user import UserCreate, UserUpdate, UserProfileUpdate, UserAddressCreate, UserAddressUpdate
-from app.utils.handle_generator import generate_friendly_handle
-
-
 def create_user(db: Session, data: UserCreate) -> User:
     from uuid import uuid4
     
     user_data = data.model_dump(exclude={"profile", "address"})
-    if not user_data.get("handle"):
-        user_data["handle"] = generate_friendly_handle()
 
     # Generate user_id upfront so we can use it for related records
     user_id = str(uuid4())

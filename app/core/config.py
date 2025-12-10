@@ -7,6 +7,10 @@ class Settings(BaseSettings):
     MASTER_KEY: str
     FRONTEND_URL: str = "http://localhost:5173"
     
+    # Hackatime Admin API
+    HACKATIME_ADMIN_API_URL: str = "https://hackatime.hackclub.com/api/admin/v1"
+    HACKATIME_API_KEY: str | None = None
+    
     # Email settings (optional - if not set, OTPs will be logged)
     SMTP_HOST: str | None = None
     SMTP_PORT: int = 587

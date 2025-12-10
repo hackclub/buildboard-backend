@@ -2,7 +2,8 @@ from typing import List
 from fastapi import APIRouter, Depends, Query, status, HTTPException, Header
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, verify_auth
-from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
+from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate, UpdateHackatimeProjectsRequest
+from app.schemas.hackatime import HackatimeProject
 from app.crud import projects as crud
 from app.crud import users as users_crud
 
@@ -84,21 +85,34 @@ def delete_project(
     return None
 
 
-@router.post("/{project_id}/hackatime/{hackatime_project_id}", status_code=status.HTTP_201_CREATED)
-def link_hackatime_project(
+@router.put("/{project_id}/hackatime-projects", response_model=ProjectRead)
+def update_hackatime_projects(
     project_id: str,
-    hackatime_project_id: str,
+    data: UpdateHackatimeProjectsRequest,
+    x_user_id: str = Header(...),
     db: Session = Depends(get_db)
-) -> dict:
-    crud.link_hackatime_project(db, project_id, hackatime_project_id)
-    return {"message": "Hackatime project linked"}
+) -> ProjectRead:
+    """
+    Update hackatime projects linked to a project.
+    Validates ownership, checks for conflicts, and calculates hours.
+    """
+    return crud.update_hackatime_projects(db, project_id, x_user_id, data.project_names)
 
 
-@router.delete("/{project_id}/hackatime/{hackatime_project_id}", status_code=status.HTTP_204_NO_CONTENT)
-def unlink_hackatime_project(
+@router.get("/{project_id}/hackatime-projects/linked", response_model=List[HackatimeProject])
+def get_linked_hackatime_projects(
     project_id: str,
-    hackatime_project_id: str,
+    x_user_id: str = Header(...),
     db: Session = Depends(get_db)
-) -> None:
-    crud.unlink_hackatime_project(db, project_id, hackatime_project_id)
-    return None
+) -> List[HackatimeProject]:
+    """Get hackatime projects linked to this project."""
+    return crud.get_linked_hackatime_projects(db, x_user_id, project_id)
+
+
+@router.get("/hackatime-projects/unlinked", response_model=List[HackatimeProject])
+def get_unlinked_hackatime_projects(
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> List[HackatimeProject]:
+    """Get hackatime projects NOT linked to any of user's projects."""
+    return crud.get_unlinked_hackatime_projects(db, x_user_id)

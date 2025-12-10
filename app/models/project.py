@@ -1,6 +1,6 @@
 from datetime import datetime
 from uuid import uuid4
-from sqlalchemy import String, Integer, Text, DateTime, ForeignKey, func, JSON, Boolean
+from sqlalchemy import String, Integer, Text, DateTime, ForeignKey, func, JSON, Boolean, Float, ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db import Base
 
@@ -23,6 +23,8 @@ class Project(Base):
     github_installation_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     github_repo_path: Mapped[str | None] = mapped_column(String(200), nullable=True)
     time_spent: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hackatime_projects: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
+    hackatime_hours: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

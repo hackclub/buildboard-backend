@@ -18,6 +18,7 @@ class User(Base):
     user_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()), index=True)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     slack_id: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
+    phone_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
     handle: Mapped[str | None] = mapped_column(String(50), unique=True, nullable=True, index=True)
     referral_code: Mapped[str] = mapped_column(String(8), unique=True, nullable=False, default=generate_referral_code, index=True)
     referred_by_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.user_id"), nullable=True, index=True)

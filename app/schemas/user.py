@@ -7,6 +7,7 @@ class UserProfilePublic(BaseModel):
     avatar_url: str | None = None
     bio: str | None = None
     is_public: bool = False
+    slack_id: str | None = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -62,6 +63,7 @@ class UserRoleRead(BaseModel):
 class UserCreate(BaseModel):
     email: EmailStr
     slack_id: str | None = Field(default=None, max_length=64)
+    phone_number: str | None = Field(default=None, max_length=20)
     handle: str | None = Field(default=None, max_length=50)
     identity_vault_id: str | None = Field(default=None, max_length=255)
     identity_vault_access_token: str | None = Field(default=None, max_length=512)

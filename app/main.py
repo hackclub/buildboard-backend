@@ -15,35 +15,8 @@ from app.db import Base, engine, SessionLocal
 from app.models import User, Project, Review, Vote, RSVP
 from sqlalchemy import and_
 from app.migrate_db import run_migrations
-
-
-async def airtable_sync_task():
-    from sqlalchemy.orm import joinedload
-    while True:
-        try:
-            db = SessionLocal()
-            try:
-                projects = db.query(Project).options(
-                    joinedload(Project.reviews)
-                ).filter(
-                    and_(
-                        Project.sent_to_airtable == False,
-                        Project.shipped == True
-                    )
-                ).all()
-
-                filtered_projects = [p for p in projects if p.reviews and len(p.reviews) > 0]
-
-                if filtered_projects:
-                    print(f"\n📦 Found {len(filtered_projects)} project(s) to sync to Airtable:")
-                    for project in filtered_projects:
-                        print(f"  - {project.project_name} (ID: {project.project_id})")
-            finally:
-                db.close()
-        except Exception as e:
-            print(f"❌ Airtable sync error: {e}")
-
-        await asyncio.sleep(10)
+from jobs.idv_sync import idv_sync_task
+from jobs.airtable_sync import airtable_sync_task
 
 
 @asynccontextmanager
@@ -61,9 +34,11 @@ async def lifespan(app: FastAPI):
         # We continue anyway, as it might be a transient DB issue or local dev setup
         pass
 
-    task = asyncio.create_task(airtable_sync_task())
+    airtable_task = asyncio.create_task(airtable_sync_task())
+    idv_task = asyncio.create_task(idv_sync_task())
     yield
-    task.cancel()
+    airtable_task.cancel()
+    idv_task.cancel()
 
 
 app = FastAPI(lifespan=lifespan)

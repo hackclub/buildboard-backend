@@ -13,6 +13,7 @@ from app.schemas.project import ProjectRead
 from app.crud import users as crud
 from app.models.user import User
 from app.models.user_login_event import UserLoginEvent
+from app.utils.slack import get_slack_username
 
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(verify_auth)])
 
@@ -363,4 +364,32 @@ def complete_onboarding(
         raise HTTPException(status_code=403, detail="Can only complete your own onboarding")
 
     user = crud.complete_onboarding(db, user_id)
+    return _to_self_read(user)
+
+
+@router.post("/{user_id}/sync-handle-from-slack", response_model=UserSelfRead)
+def sync_handle_from_slack(
+    user_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Sync handle from Slack username - requires user to have slack_id"""
+    if x_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Can only sync your own handle")
+    
+    user = crud.get_user(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if not user.slack_id:
+        raise HTTPException(status_code=400, detail="No Slack ID linked. Please join Slack first.")
+    
+    slack_username = get_slack_username(user.slack_id)
+    if not slack_username:
+        raise HTTPException(status_code=502, detail="Failed to fetch Slack username. Please try again later.")
+    
+    user.handle = slack_username
+    db.commit()
+    db.refresh(user)
+    
     return _to_self_read(user)
