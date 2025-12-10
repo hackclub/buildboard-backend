@@ -11,14 +11,6 @@ class Settings(BaseSettings):
     HACKATIME_ADMIN_API_URL: str = "https://hackatime.hackclub.com/api/admin/v1"
     HACKATIME_API_KEY: str | None = None
     
-    # Email settings (optional - if not set, OTPs will be logged)
-    SMTP_HOST: str | None = None
-    SMTP_PORT: int = 587
-    SMTP_USER: str | None = None
-    SMTP_PASSWORD: str | None = None
-    SMTP_FROM: str | None = None
-    SMTP_TLS: bool = True
-    
     class Config:
         env_file = ".env"
         extra = "ignore"
