@@ -11,7 +11,7 @@ from app.models.review import Review
 from app.models.vote import Vote
 from app.models.onboarding_event import OnboardingEvent
 from app.models.rsvp import RSVP
-from app.models.utm import Utm
+from app.models.utm import UTM
 
 __all__ = [
     "User",
@@ -27,5 +27,5 @@ __all__ = [
     "Vote",
     "OnboardingEvent",
     "RSVP",
-    "Utm",
+    "UTM",
 ]
