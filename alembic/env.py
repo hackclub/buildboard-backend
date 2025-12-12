@@ -18,6 +18,7 @@ from app.models.project import Project
 from app.models.review import Review
 from app.models.vote import Vote
 from app.models.rsvp import RSVP
+from app.models.utm import Utm
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
