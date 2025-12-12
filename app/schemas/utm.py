@@ -1,14 +1,13 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 
-class UtmBase(BaseModel):
+class UTMCreate(BaseModel):
     utm_source: str
 
 
-class UtmCreate(UtmBase):
-    pass
-
-
-class UtmRead(UtmBase):
+class UTMRead(BaseModel):
+    utm_source: str
     count: int
-    model_config = ConfigDict(from_attributes=True)
+
+    class Config:
+        from_attributes = True

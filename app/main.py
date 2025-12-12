@@ -42,6 +42,7 @@ app.include_router(rsvps_router)
 app.include_router(hackatime_router)
 app.include_router(github_router)
 app.include_router(analytics_router)
+app.include_router(utms_router)
 app.include_router(roles_router)
 app.include_router(utms_router)
 
