@@ -22,11 +22,14 @@ async def refresh_hackatime_stats(
     return await fetch_hackatime_stats(current_user.user_id, current_user.slack_id, db)
 
 @router.get("/projects", response_model=list[HackatimeProject])
-def read_hackatime_projects(
+async def read_hackatime_projects(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
     Retrieve Hackatime projects for the current user.
+    Auto-fetches from Hackatime API if no projects exist in the database.
     """
+    if not current_user.hackatime_projects:
+        return await fetch_hackatime_stats(current_user.user_id, current_user.slack_id, db)
     return current_user.hackatime_projects

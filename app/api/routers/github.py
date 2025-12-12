@@ -6,14 +6,13 @@ from app.api.deps import get_db, get_current_user
 from app.models.project import Project
 from app.models.user import User
 from app.crud import users as users_crud
-from app.services.github_service import GitHubService
+from app.services.github_service import GitHubService, AppNotInstalledError
 
 router = APIRouter()
 github_service = GitHubService()
 
 class GitHubLinkRequest(BaseModel):
-    installation_id: str
-    repo_path: str
+    repo_path: str  # Accepts: owner/repo, GitHub URL, or SSH URL
 
 class ReadmeUpdateRequest(BaseModel):
     content: str
@@ -35,11 +34,25 @@ def link_github_repo(
     if project.user_id != current_user.user_id and not is_admin:
         raise HTTPException(status_code=403, detail="Not authorized to edit this project")
 
-    project.github_installation_id = request.installation_id
-    project.github_repo_path = request.repo_path
+    # Normalize and validate the repo path
+    try:
+        repo_path = github_service.normalize_repo_path(request.repo_path)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Auto-detect installation ID from the repository
+    try:
+        installation_id, canonical_repo_path = github_service.get_installation_for_repo(repo_path)
+    except AppNotInstalledError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to verify repository: {str(e)}")
+
+    project.github_installation_id = str(installation_id)
+    project.github_repo_path = canonical_repo_path
     db.commit()
 
-    return {"status": "success", "message": "GitHub repository linked"}
+    return {"status": "success", "message": f"GitHub repository '{canonical_repo_path}' linked successfully"}
 
 @router.get("/projects/{project_id}/readme")
 def get_project_readme(

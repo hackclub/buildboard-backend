@@ -2,7 +2,14 @@ import os
 import time
 import jwt
 import requests
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
+from urllib.parse import urlparse
+
+
+class AppNotInstalledError(Exception):
+    """Raised when the GitHub App is not installed on a repository."""
+    pass
+
 
 class GitHubService:
     def __init__(self):
@@ -25,6 +32,122 @@ class GitHubService:
         }
 
         return jwt.encode(payload, self.private_key, algorithm="RS256")
+
+    def _app_headers(self) -> dict:
+        """Get headers for GitHub App authentication (JWT)."""
+        jwt_token = self.generate_jwt()
+        return {
+            "Authorization": f"Bearer {jwt_token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+
+    def normalize_repo_path(self, repo_input: str) -> str:
+        """
+        Normalize various GitHub repo formats to 'owner/repo'.
+        
+        Accepts:
+          - owner/repo
+          - https://github.com/owner/repo
+          - https://github.com/owner/repo.git
+          - git@github.com:owner/repo.git
+        
+        Returns: 'owner/repo'
+        """
+        repo_input = repo_input.strip()
+        
+        if not repo_input:
+            raise ValueError("Repository cannot be empty")
+
+        # URL format (http/https)
+        if repo_input.startswith("http://") or repo_input.startswith("https://"):
+            parsed = urlparse(repo_input)
+            path = parsed.path.strip("/")
+            parts = path.split("/")
+            if len(parts) < 2:
+                raise ValueError("Invalid GitHub repository URL")
+            owner, repo = parts[0], parts[1]
+            if repo.endswith(".git"):
+                repo = repo[:-4]
+            return f"{owner}/{repo}"
+
+        # SSH format
+        if repo_input.startswith("git@github.com:"):
+            path = repo_input.split(":", 1)[1]
+            if path.endswith(".git"):
+                path = path[:-4]
+            if "/" not in path:
+                raise ValueError("Invalid GitHub SSH URL")
+            return path
+
+        # Assume owner/repo format
+        if "/" not in repo_input:
+            raise ValueError("Repository must be in 'owner/repo' format or a GitHub URL")
+        
+        parts = repo_input.split("/")
+        if len(parts) != 2 or not parts[0] or not parts[1]:
+            raise ValueError("Invalid repository format. Use 'owner/repo'")
+        
+        return repo_input
+
+    def get_installation_for_repo(self, repo_path: str) -> Tuple[int, str]:
+        """
+        Get the GitHub App installation ID for a repository.
+        
+        Args:
+            repo_path: Repository in 'owner/repo' format (will be normalized)
+            
+        Returns:
+            Tuple of (installation_id, canonical_full_name)
+            
+        Raises:
+            AppNotInstalledError: If the GitHub App is not installed on the repo
+        """
+        repo_path = self.normalize_repo_path(repo_path)
+        headers = self._app_headers()
+        
+        url = f"https://api.github.com/repos/{repo_path}/installation"
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            data = response.json()
+            installation_id = data["id"]
+            
+            # Get canonical repo name using installation token
+            try:
+                token = self.get_installation_token(str(installation_id))
+                repo_response = requests.get(
+                    f"https://api.github.com/repos/{repo_path}",
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Accept": "application/vnd.github+json",
+                        "X-GitHub-Api-Version": "2022-11-28",
+                    },
+                )
+                if repo_response.status_code == 200:
+                    canonical_name = repo_response.json()["full_name"]
+                else:
+                    canonical_name = repo_path
+            except Exception:
+                canonical_name = repo_path
+            
+            return installation_id, canonical_name
+        
+        if response.status_code == 404:
+            raise AppNotInstalledError(
+                f"The Buildboard GitHub App is not installed on '{repo_path}'. "
+                "Please install the app on this repository and try again."
+            )
+        
+        if response.status_code == 403:
+            raise AppNotInstalledError(
+                f"Access denied for repository '{repo_path}'. "
+                "Make sure the Buildboard GitHub App is installed and has access to this repository."
+            )
+        
+        raise Exception(
+            f"Failed to find installation for repository: {response.status_code} - {response.text}"
+        )
 
     def get_installation_token(self, installation_id: str) -> str:
         """Get an access token for a specific installation."""
