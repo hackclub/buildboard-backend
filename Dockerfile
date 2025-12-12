@@ -7,4 +7,4 @@ COPY ./app /code/app
 COPY ./jobs /code/jobs
 COPY ./alembic /code/alembic
 COPY ./alembic.ini /code/alembic.ini
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 45010"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "45010"]
