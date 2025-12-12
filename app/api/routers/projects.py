@@ -4,8 +4,10 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, verify_auth
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate, UpdateHackatimeProjectsRequest
 from app.schemas.hackatime import HackatimeProject
+from app.schemas.visibility import VisibilityStatus
 from app.crud import projects as crud
 from app.crud import users as users_crud
+from app.services.visibility import calculate_visibility
 
 router = APIRouter(prefix="/projects", tags=["projects"], dependencies=[Depends(verify_auth)])
 
@@ -116,3 +118,18 @@ def get_unlinked_hackatime_projects(
 ) -> List[HackatimeProject]:
     """Get hackatime projects NOT linked to any of user's projects."""
     return crud.get_unlinked_hackatime_projects(db, x_user_id)
+
+
+@router.get("/{project_id}/visibility", response_model=VisibilityStatus)
+def get_project_visibility(
+    project_id: str,
+    db: Session = Depends(get_db)
+) -> VisibilityStatus:
+    """
+    Get the visibility meter status for a project.
+    Returns current level, milestones, and progress toward billboard visibility.
+    """
+    project = crud.get_project(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return calculate_visibility(db, project)
