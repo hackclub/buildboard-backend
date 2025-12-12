@@ -14,7 +14,6 @@ from app.api.routers.roles import router as roles_router
 from app.db import Base, engine, SessionLocal
 from app.models import User, Project, Review, Vote, RSVP
 from sqlalchemy import and_
-from app.migrate_db import run_migrations
 from jobs.idv_sync import idv_sync_task
 from jobs.airtable_sync import airtable_sync_task
 
@@ -23,16 +22,6 @@ from jobs.airtable_sync import airtable_sync_task
 async def lifespan(app: FastAPI):
     # Set start time when app starts
     app.state.start_time = datetime.now()
-    
-    # Run database migrations
-    try:
-        print("Running database migrations...")
-        run_migrations()
-        print("Database migrations completed.")
-    except Exception as e:
-        print(f"WARNING: Database migration failed: {e}")
-        # We continue anyway, as it might be a transient DB issue or local dev setup
-        pass
 
     airtable_task = asyncio.create_task(airtable_sync_task())
     idv_task = asyncio.create_task(idv_sync_task())
