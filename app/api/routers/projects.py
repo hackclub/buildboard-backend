@@ -5,9 +5,11 @@ from app.api.deps import get_db, verify_auth
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate, UpdateHackatimeProjectsRequest
 from app.schemas.hackatime import HackatimeProject
 from app.schemas.visibility import VisibilityStatus
+from app.schemas.submission import SubmitProjectResponse, SubmissionValidationError
 from app.crud import projects as crud
 from app.crud import users as users_crud
 from app.services.visibility import calculate_visibility
+from app.services.submission import submit_project
 
 router = APIRouter(prefix="/projects", tags=["projects"], dependencies=[Depends(verify_auth)])
 
@@ -133,3 +135,54 @@ def get_project_visibility(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     return calculate_visibility(db, project)
+
+
+@router.post("/{project_id}/submit", response_model=SubmitProjectResponse)
+def submit_project_endpoint(
+    project_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> SubmitProjectResponse:
+    """
+    Submit a project for review.
+    Validates all requirements before allowing submission:
+    - User must be under 19 years old
+    - User profile must be complete (first name, birthday)
+    - User must have a complete shipping address
+    - At least one Hackatime project must be linked
+    - Project must have a GitHub repo URL
+    - Project must have a live/playable URL
+    - Project must have at least one screenshot
+    """
+    project = crud.get_project(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    user = users_crud.get_user(db, x_user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    is_admin = users_crud.has_role(db, x_user_id, "admin")
+    if project.user_id != x_user_id and not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only submit your own projects"
+        )
+
+    if project.shipped:
+        return SubmitProjectResponse(
+            success=True,
+            errors=[],
+            shipped=True
+        )
+
+    updated_project, validation = submit_project(db, project, user)
+
+    return SubmitProjectResponse(
+        success=validation.valid,
+        errors=[
+            SubmissionValidationError(field=e.field, message=e.message)
+            for e in validation.errors
+        ],
+        shipped=updated_project.shipped
+    )
