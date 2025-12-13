@@ -215,13 +215,13 @@ def record_login(
     x_user_id: str = Header(...),
     db: Session = Depends(get_db)
 ) -> LoginRecordedResponse:
-    """Record login - only self can record"""
+    """Record login - only self can record. Deduplicated to one per day (UTC)."""
     if x_user_id != user_id:
         raise HTTPException(status_code=403, detail="Can only record your own login")
     
-    login_event = crud.record_login(db, user_id)
+    login_event, is_new = crud.record_login(db, user_id)
     return LoginRecordedResponse(
-        message="Login recorded",
+        message="Login recorded" if is_new else "Already logged in today",
         logged_in_at=login_event.logged_in_at.isoformat()
     )
 

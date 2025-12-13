@@ -196,16 +196,37 @@ def has_role(db: Session, user_id: str, role_id: str) -> bool:
     ).first() is not None
 
 
-def record_login(db: Session, user_id: str) -> UserLoginEvent:
+def record_login(db: Session, user_id: str) -> tuple[UserLoginEvent, bool]:
+    """Record a login event for a user, deduplicated to one per day (UTC).
+    
+    Returns:
+        Tuple of (login_event, is_new) where is_new is False if already logged in today.
+    """
+    from datetime import datetime, timezone, timedelta
+    from sqlalchemy import func as sql_func
+    
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    today_utc = datetime.now(timezone.utc).date()
+    today_start = datetime.combine(today_utc, datetime.min.time()).replace(tzinfo=timezone.utc)
+    today_end = today_start + timedelta(days=1)
+    
+    existing = db.query(UserLoginEvent).filter(
+        UserLoginEvent.user_id == user_id,
+        UserLoginEvent.logged_in_at >= today_start,
+        UserLoginEvent.logged_in_at < today_end
+    ).first()
+    
+    if existing:
+        return existing, False
+    
     login_event = UserLoginEvent(user_id=user_id)
     db.add(login_event)
     db.commit()
     db.refresh(login_event)
-    return login_event
+    return login_event, True
 
 
 def get_login_events(db: Session, user_id: str, limit: int = 100) -> Sequence[UserLoginEvent]:
