@@ -62,54 +62,7 @@ def validate_submission(db: Session, project: Project, user: User) -> Submission
                 message="First name is required."
             ))
 
-        # 2. Check birthday and age
-        if not profile.birthday:
-            errors.append(ValidationError(
-                field="birthday",
-                message="Birthday is required."
-            ))
-        else:
-            age = _calculate_age(profile.birthday)
-            if age >= AGE_LIMIT:
-                errors.append(ValidationError(
-                    field="age",
-                    message=f"You must be under {AGE_LIMIT} years old to submit."
-                ))
-
-    # 3. Check address
-    address = db.query(UserAddress).filter(
-        UserAddress.user_id == user.user_id,
-        UserAddress.is_primary == True
-    ).first()
-
-    if not address:
-        errors.append(ValidationError(
-            field="address",
-            message="A shipping address is required."
-        ))
-    else:
-        if not address.address_line_1 or not address.address_line_1.strip():
-            errors.append(ValidationError(
-                field="address_line_1",
-                message="Address line 1 is required."
-            ))
-        if not address.city or not address.city.strip():
-            errors.append(ValidationError(
-                field="city",
-                message="City is required."
-            ))
-        if not address.country or not address.country.strip():
-            errors.append(ValidationError(
-                field="country",
-                message="Country is required."
-            ))
-        if not address.post_code or not address.post_code.strip():
-            errors.append(ValidationError(
-                field="post_code",
-                message="Post/ZIP code is required."
-            ))
-
-    # 4. Check Hackatime projects linked
+    # Check Hackatime projects linked
     if not project.hackatime_projects or len(project.hackatime_projects) == 0:
         errors.append(ValidationError(
             field="hackatime_projects",
