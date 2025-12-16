@@ -21,9 +21,15 @@ async def fetch_hackatime_stats(user_id: str, slack_id: str, db: Session) -> lis
         logger.warning("HACKATIME_API_KEY not configured, cannot fetch Hackatime stats")
         return []
 
+    # First, look up the Hackatime internal user ID from the slack_uid
+    hackatime_user_id = await lookup_hackatime_user_id_by_slack(slack_id)
+    if not hackatime_user_id:
+        logger.warning(f"Could not find Hackatime user for slack_id {slack_id}")
+        return []
+
     # Use the Admin API to get user projects
     url = f"{settings.HACKATIME_ADMIN_API_URL}/user/projects"
-    params = {"id": slack_id}
+    params = {"id": hackatime_user_id}
     headers = {
         "Authorization": f"Bearer {settings.HACKATIME_API_KEY}"
     }
@@ -84,6 +90,49 @@ async def fetch_hackatime_stats(user_id: str, slack_id: str, db: Session) -> lis
     except Exception as e:
         logger.error(f"Error fetching Hackatime stats for {user_id}: {e}")
         return []
+
+
+async def lookup_hackatime_user_id_by_slack(slack_id: str) -> int | None:
+    """
+    Look up a Hackatime internal user ID by Slack ID using the Admin API.
+    Returns the Hackatime user ID if found, None otherwise.
+    """
+    if not settings.HACKATIME_API_KEY:
+        logger.warning("HACKATIME_API_KEY not configured, cannot lookup Hackatime user")
+        return None
+
+    url = f"{settings.HACKATIME_ADMIN_API_URL}/execute"
+    headers = {
+        "Authorization": f"Bearer {settings.HACKATIME_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "query": f"SELECT id FROM users WHERE slack_uid = '{slack_id}' LIMIT 1"
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers=headers, json=payload, timeout=10.0)
+
+        if response.status_code != 200:
+            logger.error(f"Failed to lookup Hackatime user for slack_id {slack_id}: {response.status_code}")
+            return None
+
+        data = response.json()
+        if data.get("success") and data.get("rows") and len(data["rows"]) > 0:
+            # Extract the ID from the response format: {"id": ["id", 17636]}
+            id_value = data["rows"][0].get("id")
+            if isinstance(id_value, list) and len(id_value) > 1:
+                return id_value[1]
+            elif isinstance(id_value, int):
+                return id_value
+        
+        return None
+
+    except Exception as e:
+        logger.error(f"Error looking up Hackatime user for slack_id {slack_id}: {e}")
+        return None
 
 
 async def lookup_hackatime_account_by_email(email: str) -> str | None:
