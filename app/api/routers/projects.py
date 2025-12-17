@@ -19,6 +19,16 @@ def create_project(project_in: ProjectCreate, db: Session = Depends(get_db)) -> 
     return crud.create_project(db, project_in)
 
 
+# NOTE: This route MUST be defined before /{project_id} routes to avoid being matched as a project_id
+@router.get("/hackatime-projects/unlinked", response_model=List[HackatimeProject])
+def get_unlinked_hackatime_projects(
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> List[HackatimeProject]:
+    """Get hackatime projects NOT linked to any of user's projects."""
+    return crud.get_unlinked_hackatime_projects(db, x_user_id)
+
+
 @router.get("/{project_id}", response_model=ProjectRead)
 def get_project(project_id: str, db: Session = Depends(get_db)) -> ProjectRead:
     project = crud.get_project(db, project_id)
@@ -111,15 +121,6 @@ def get_linked_hackatime_projects(
 ) -> List[HackatimeProject]:
     """Get hackatime projects linked to this project."""
     return crud.get_linked_hackatime_projects(db, x_user_id, project_id)
-
-
-@router.get("/hackatime-projects/unlinked", response_model=List[HackatimeProject])
-def get_unlinked_hackatime_projects(
-    x_user_id: str = Header(...),
-    db: Session = Depends(get_db)
-) -> List[HackatimeProject]:
-    """Get hackatime projects NOT linked to any of user's projects."""
-    return crud.get_unlinked_hackatime_projects(db, x_user_id)
 
 
 @router.get("/{project_id}/visibility", response_model=VisibilityStatus)
