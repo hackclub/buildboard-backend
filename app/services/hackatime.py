@@ -42,10 +42,15 @@ async def fetch_hackatime_stats(user_id: str, slack_id: str, db: Session) -> lis
             logger.error(f"Failed to fetch Hackatime stats for {slack_id}: {response.status_code} {response.text}")
             return []
 
-        projects_data = response.json()
+        response_data = response.json()
         
-        if not isinstance(projects_data, list):
-            logger.warning(f"Hackatime API returned unexpected format for {slack_id}: {type(projects_data)}")
+        # Handle the response format: {"user_id": ..., "username": ..., "projects": [...]}
+        if isinstance(response_data, dict) and "projects" in response_data:
+            projects_data = response_data["projects"]
+        elif isinstance(response_data, list):
+            projects_data = response_data
+        else:
+            logger.warning(f"Hackatime API returned unexpected format for {slack_id}: {type(response_data)}")
             return []
 
         # Process projects - aggregate by name
