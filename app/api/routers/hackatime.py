@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from app.api.deps import get_db, get_current_user
+from app.api.deps import get_db, get_current_user, verify_auth
 from app.models.user import User
 from app.schemas.hackatime import HackatimeProjectList, HackatimeProject
 from app.services.hackatime import fetch_hackatime_stats
@@ -8,6 +8,7 @@ from app.services.hackatime import fetch_hackatime_stats
 router = APIRouter(
     prefix="/hackatime",
     tags=["hackatime"],
+    dependencies=[Depends(verify_auth)],
     responses={404: {"description": "Not found"}},
 )
 
