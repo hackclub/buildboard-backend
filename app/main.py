@@ -5,8 +5,14 @@ from datetime import datetime
 from fastapi import FastAPI
 from app.api.routers.users import router as users_router
 
+# Configure logging to actually output
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s:     %(name)s - %(message)s"
+)
+
 # Build version for deployment verification
-BUILD_VERSION = "2025-12-19-v3-hackatime-fix"
+BUILD_VERSION = "2025-12-19-v4-logging-fix"
 logger = logging.getLogger(__name__)
 from app.api.routers.projects import router as projects_router
 from app.api.routers.votes import router as votes_router

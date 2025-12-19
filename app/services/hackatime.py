@@ -13,6 +13,7 @@ async def fetch_hackatime_stats(user_id: str, slack_id: str, db: Session) -> lis
     """
     Fetches Hackatime stats for a user using the Admin API and updates the local database.
     """
+    print(f"[Hackatime] fetch_hackatime_stats called for user_id={user_id}, slack_id={slack_id}", flush=True)
     logger.info(f"[Hackatime] fetch_hackatime_stats called for user_id={user_id}, slack_id={slack_id}")
     
     if not slack_id:

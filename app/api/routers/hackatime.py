@@ -20,6 +20,7 @@ async def refresh_hackatime_stats(
     """
     Refreshes Hackatime stats for the current user from the Hackatime API.
     """
+    print(f"[Hackatime Router] /refresh called for user_id={current_user.user_id}, slack_id={current_user.slack_id}", flush=True)
     return await fetch_hackatime_stats(current_user.user_id, current_user.slack_id, db)
 
 @router.get("/projects", response_model=list[HackatimeProject])
