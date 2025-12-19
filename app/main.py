@@ -12,7 +12,7 @@ logging.basicConfig(
 )
 
 # Build version for deployment verification
-BUILD_VERSION = "2025-12-19-v5-debug-endpoint"
+BUILD_VERSION = "2025-12-19-v6-debug-api-call"
 logger = logging.getLogger(__name__)
 from app.api.routers.projects import router as projects_router
 from app.api.routers.votes import router as votes_router
