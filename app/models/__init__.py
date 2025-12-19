@@ -12,6 +12,7 @@ from app.models.vote import Vote
 from app.models.onboarding_event import OnboardingEvent
 from app.models.rsvp import RSVP
 from app.models.utm import UTM
+from app.models.audit_log import AuditLog
 
 __all__ = [
     "User",
@@ -28,4 +29,5 @@ __all__ = [
     "OnboardingEvent",
     "RSVP",
     "UTM",
+    "AuditLog",
 ]

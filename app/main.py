@@ -23,6 +23,7 @@ from app.api.routers.github import router as github_router
 from app.api.routers.analytics import router as analytics_router
 from app.api.routers.roles import router as roles_router
 from app.api.routers.utms import router as utms_router
+from app.api.routers.admin import router as admin_router
 from app.db import Base, engine, SessionLocal
 from app.models import User, Project, Review, Vote, RSVP
 from sqlalchemy import and_
@@ -56,7 +57,7 @@ app.include_router(github_router)
 app.include_router(analytics_router)
 app.include_router(utms_router)
 app.include_router(roles_router)
-app.include_router(utms_router)
+app.include_router(admin_router)
 
 
 @app.get("/")
