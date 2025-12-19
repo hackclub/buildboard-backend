@@ -1,8 +1,13 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
 from fastapi import FastAPI
 from app.api.routers.users import router as users_router
+
+# Build version for deployment verification
+BUILD_VERSION = "2025-12-19-v3-hackatime-fix"
+logger = logging.getLogger(__name__)
 from app.api.routers.projects import router as projects_router
 from app.api.routers.votes import router as votes_router
 from app.api.routers.reviews import router as reviews_router
@@ -23,6 +28,7 @@ from jobs.airtable_sync import airtable_sync_task
 async def lifespan(app: FastAPI):
     # Set start time when app starts
     app.state.start_time = datetime.now()
+    logger.info(f"[STARTUP] BuildBoard Backend starting - Build: {BUILD_VERSION}")
 
     airtable_task = asyncio.create_task(airtable_sync_task())
     idv_task = asyncio.create_task(idv_sync_task())
@@ -64,5 +70,6 @@ def health_check():
     return {
         "status": "up",
         "since": start_time.isoformat(),
-        "uptime": str(uptime)
+        "uptime": str(uptime),
+        "build": BUILD_VERSION
     }

@@ -1,5 +1,6 @@
 FROM python:3.11-slim
-# Force rebuild: 2025-12-19
+# Cache bust: 2025-12-19-v3-hackatime-fix
+ARG CACHEBUST=1
 RUN apt-get update && apt-get install -y --no-install-recommends curl wget && rm -rf /var/lib/apt/lists/*
 WORKDIR /code
 COPY ./requirements.txt /code/requirements.txt
