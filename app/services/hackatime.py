@@ -13,19 +13,25 @@ async def fetch_hackatime_stats(user_id: str, slack_id: str, db: Session) -> lis
     """
     Fetches Hackatime stats for a user using the Admin API and updates the local database.
     """
+    logger.info(f"[Hackatime] fetch_hackatime_stats called for user_id={user_id}, slack_id={slack_id}")
+    
     if not slack_id:
-        logger.warning(f"User {user_id} has no slack_id, cannot fetch Hackatime stats")
+        logger.warning(f"[Hackatime] User {user_id} has no slack_id, cannot fetch Hackatime stats")
         return []
 
     if not settings.HACKATIME_API_KEY:
-        logger.warning("HACKATIME_API_KEY not configured, cannot fetch Hackatime stats")
+        logger.warning("[Hackatime] HACKATIME_API_KEY not configured, cannot fetch Hackatime stats")
         return []
+    
+    logger.info(f"[Hackatime] API key present, length={len(settings.HACKATIME_API_KEY)}")
 
     # First, look up the Hackatime internal user ID from the slack_uid
     hackatime_user_id = await lookup_hackatime_user_id_by_slack(slack_id)
     if not hackatime_user_id:
-        logger.warning(f"Could not find Hackatime user for slack_id {slack_id}")
+        logger.warning(f"[Hackatime] Could not find Hackatime user for slack_id {slack_id}")
         return []
+    
+    logger.info(f"[Hackatime] Found Hackatime user_id={hackatime_user_id} for slack_id={slack_id}")
 
     # Use the Admin API to get user projects
     url = f"{settings.HACKATIME_ADMIN_API_URL}/user/projects"
@@ -35,11 +41,13 @@ async def fetch_hackatime_stats(user_id: str, slack_id: str, db: Session) -> lis
     }
 
     try:
+        logger.info(f"[Hackatime] Fetching projects from {url} for hackatime_user_id={hackatime_user_id}")
         async with httpx.AsyncClient() as client:
             response = await client.get(url, params=params, headers=headers, timeout=10.0)
 
+        logger.info(f"[Hackatime] Projects API response status: {response.status_code}")
         if response.status_code != 200:
-            logger.error(f"Failed to fetch Hackatime stats for {slack_id}: {response.status_code} {response.text}")
+            logger.error(f"[Hackatime] Failed to fetch stats for {slack_id}: {response.status_code} {response.text[:200]}")
             return []
 
         response_data = response.json()
@@ -53,6 +61,8 @@ async def fetch_hackatime_stats(user_id: str, slack_id: str, db: Session) -> lis
             logger.warning(f"Hackatime API returned unexpected format for {slack_id}: {type(response_data)}")
             return []
 
+        logger.info(f"[Hackatime] Received {len(projects_data)} projects from API")
+        
         # Process projects - aggregate by name
         aggregated_projects = {}
         for p in projects_data:
@@ -88,12 +98,15 @@ async def fetch_hackatime_stats(user_id: str, slack_id: str, db: Session) -> lis
                 updated_projects.append(new_project)
 
         db.commit()
+        
+        all_projects = db.query(HackatimeProject).filter(HackatimeProject.user_id == user_id).all()
+        logger.info(f"[Hackatime] Saved {len(aggregated_projects)} unique projects, total in DB: {len(all_projects)}")
 
         # Return all current projects for the user
-        return db.query(HackatimeProject).filter(HackatimeProject.user_id == user_id).all()
+        return all_projects
 
     except Exception as e:
-        logger.error(f"Error fetching Hackatime stats for {user_id}: {e}")
+        logger.error(f"[Hackatime] Error fetching stats for {user_id}: {e}", exc_info=True)
         return []
 
 
@@ -102,8 +115,10 @@ async def lookup_hackatime_user_id_by_slack(slack_id: str) -> int | None:
     Look up a Hackatime internal user ID by Slack ID using the Admin API.
     Returns the Hackatime user ID if found, None otherwise.
     """
+    logger.info(f"[Hackatime] Looking up Hackatime user for slack_id={slack_id}")
+    
     if not settings.HACKATIME_API_KEY:
-        logger.warning("HACKATIME_API_KEY not configured, cannot lookup Hackatime user")
+        logger.warning("[Hackatime] HACKATIME_API_KEY not configured, cannot lookup Hackatime user")
         return None
 
     url = f"{settings.HACKATIME_ADMIN_API_URL}/execute"
@@ -120,11 +135,13 @@ async def lookup_hackatime_user_id_by_slack(slack_id: str) -> int | None:
         async with httpx.AsyncClient() as client:
             response = await client.post(url, headers=headers, json=payload, timeout=10.0)
 
+        logger.info(f"[Hackatime] Lookup response status: {response.status_code}")
         if response.status_code != 200:
-            logger.error(f"Failed to lookup Hackatime user for slack_id {slack_id}: {response.status_code}")
+            logger.error(f"[Hackatime] Failed to lookup user for slack_id {slack_id}: {response.status_code} {response.text[:200]}")
             return None
 
         data = response.json()
+        logger.info(f"[Hackatime] Lookup response: success={data.get('success')}, rows={len(data.get('rows', []))}")
         if data.get("success") and data.get("rows") and len(data["rows"]) > 0:
             # Extract the ID from the response format: {"id": ["id", 17636]}
             id_value = data["rows"][0].get("id")
