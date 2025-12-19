@@ -1,5 +1,5 @@
 FROM python:3.11-slim
-# Cache bust: 2025-12-19-v3-hackatime-fix
+# Cache bust: 2025-12-19-v5-debug-endpoint
 ARG CACHEBUST=1
 RUN apt-get update && apt-get install -y --no-install-recommends curl wget && rm -rf /var/lib/apt/lists/*
 WORKDIR /code
