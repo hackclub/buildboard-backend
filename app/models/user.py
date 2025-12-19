@@ -40,6 +40,6 @@ class User(Base):
     addresses: Mapped[list["UserAddress"]] = relationship("UserAddress", back_populates="user", cascade="all, delete-orphan")
     roles: Mapped[list["UserRole"]] = relationship("UserRole", back_populates="user", cascade="all, delete-orphan")
     login_events: Mapped[list["UserLoginEvent"]] = relationship("UserLoginEvent", back_populates="user", cascade="all, delete-orphan")
-    projects: Mapped[list["Project"]] = relationship("Project", back_populates="user", cascade="all, delete-orphan")
+    projects: Mapped[list["Project"]] = relationship("Project", back_populates="user", cascade="all, delete-orphan", foreign_keys="[Project.user_id]")
     hackatime_projects: Mapped[list["HackatimeProject"]] = relationship("HackatimeProject", back_populates="user", cascade="all, delete-orphan")
     referrer: Mapped["User"] = relationship("User", remote_side=[user_id], foreign_keys=[referred_by_user_id])
