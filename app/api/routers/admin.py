@@ -86,11 +86,8 @@ def get_dashboard_stats(db: Session = Depends(get_db)) -> dict:
     ).scalar() or 0
 
     # User journey funnel - count users at each milestone
-    storyline_completed = db.query(func.count(User.user_id)).filter(
-        User.storyline_completed_at.isnot(None)
-    ).scalar() or 0
     slack_linked = db.query(func.count(User.user_id)).filter(
-        User.slack_linked_at.isnot(None)
+        User.slack_id.isnot(None)
     ).scalar() or 0
     idv_completed = db.query(func.count(User.user_id)).filter(
         User.idv_completed_at.isnot(None)
@@ -135,7 +132,6 @@ def get_dashboard_stats(db: Session = Depends(get_db)) -> dict:
         },
         "user_journey": {
             "total_users": total_users,
-            "storyline_completed": storyline_completed,
             "slack_linked": slack_linked,
             "idv_completed": idv_completed,
             "hackatime_completed": hackatime_completed,
@@ -236,8 +232,7 @@ def list_users(
     def get_journey_step(user: User) -> dict:
         steps = [
             ("registered", True),
-            ("storyline", user.storyline_completed_at is not None),
-            ("slack", user.slack_linked_at is not None),
+            ("slack", user.slack_id is not None),
             ("idv", user.idv_completed_at is not None),
             ("hackatime", user.hackatime_completed_at is not None),
             ("onboarding", user.onboarding_completed_at is not None),
@@ -253,8 +248,7 @@ def list_users(
             "current_step": current_step,
             "completed_count": completed,
             "total_steps": len(steps),
-            "storyline": user.storyline_completed_at is not None,
-            "slack": user.slack_linked_at is not None,
+            "slack": user.slack_id is not None,
             "idv": user.idv_completed_at is not None,
             "hackatime": user.hackatime_completed_at is not None,
             "onboarding": user.onboarding_completed_at is not None,
@@ -426,8 +420,7 @@ def get_user_detail(
 
     # Build journey status
     journey = {
-        "storyline": {"completed": user.storyline_completed_at is not None, "completed_at": user.storyline_completed_at.isoformat() if user.storyline_completed_at else None},
-        "slack": {"completed": user.slack_linked_at is not None, "completed_at": user.slack_linked_at.isoformat() if user.slack_linked_at else None},
+        "slack": {"completed": user.slack_id is not None, "slack_id": user.slack_id},
         "idv": {"completed": user.idv_completed_at is not None, "completed_at": user.idv_completed_at.isoformat() if user.idv_completed_at else None},
         "hackatime": {"completed": user.hackatime_completed_at is not None, "completed_at": user.hackatime_completed_at.isoformat() if user.hackatime_completed_at else None},
         "onboarding": {"completed": user.onboarding_completed_at is not None, "completed_at": user.onboarding_completed_at.isoformat() if user.onboarding_completed_at else None},
