@@ -1,8 +1,19 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
 from fastapi import FastAPI
 from app.api.routers.users import router as users_router
+
+# Configure logging to actually output
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s:     %(name)s - %(message)s"
+)
+
+# Build version for deployment verification
+BUILD_VERSION = "2025-12-19-v7-client-fix"
+logger = logging.getLogger(__name__)
 from app.api.routers.projects import router as projects_router
 from app.api.routers.votes import router as votes_router
 from app.api.routers.reviews import router as reviews_router
@@ -12,6 +23,7 @@ from app.api.routers.github import router as github_router
 from app.api.routers.analytics import router as analytics_router
 from app.api.routers.roles import router as roles_router
 from app.api.routers.utms import router as utms_router
+from app.api.routers.admin import router as admin_router
 from app.db import Base, engine, SessionLocal
 from app.models import User, Project, Review, Vote, RSVP
 from sqlalchemy import and_
@@ -23,6 +35,7 @@ from jobs.airtable_sync import airtable_sync_task
 async def lifespan(app: FastAPI):
     # Set start time when app starts
     app.state.start_time = datetime.now()
+    logger.info(f"[STARTUP] BuildBoard Backend starting - Build: {BUILD_VERSION}")
 
     airtable_task = asyncio.create_task(airtable_sync_task())
     idv_task = asyncio.create_task(idv_sync_task())
@@ -44,7 +57,7 @@ app.include_router(github_router)
 app.include_router(analytics_router)
 app.include_router(utms_router)
 app.include_router(roles_router)
-app.include_router(utms_router)
+app.include_router(admin_router)
 
 
 @app.get("/")
@@ -64,5 +77,6 @@ def health_check():
     return {
         "status": "up",
         "since": start_time.isoformat(),
-        "uptime": str(uptime)
+        "uptime": str(uptime),
+        "build": BUILD_VERSION
     }
