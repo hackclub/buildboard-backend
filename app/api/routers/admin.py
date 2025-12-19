@@ -9,6 +9,10 @@ from app.models.project import Project
 from app.models.user import User
 from app.models.onboarding_event import OnboardingEvent
 from app.models.audit_log import AuditLog
+from app.models.hackatime_project import HackatimeProject
+from app.models.user_login_event import UserLoginEvent
+from app.models.vote import Vote
+from app.models.review import Review
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(verify_auth), Depends(verify_admin)])
 
@@ -81,6 +85,25 @@ def get_dashboard_stats(db: Session = Depends(get_db)) -> dict:
         OnboardingEvent.created_at >= week_ago
     ).scalar() or 0
 
+    # User journey funnel - count users at each milestone
+    storyline_completed = db.query(func.count(User.user_id)).filter(
+        User.storyline_completed_at.isnot(None)
+    ).scalar() or 0
+    slack_linked = db.query(func.count(User.user_id)).filter(
+        User.slack_linked_at.isnot(None)
+    ).scalar() or 0
+    idv_completed = db.query(func.count(User.user_id)).filter(
+        User.idv_completed_at.isnot(None)
+    ).scalar() or 0
+    hackatime_completed = db.query(func.count(User.user_id)).filter(
+        User.hackatime_completed_at.isnot(None)
+    ).scalar() or 0
+
+    # Users who have shipped at least one project
+    users_with_shipped = db.query(func.count(func.distinct(Project.user_id))).filter(
+        Project.shipped == True
+    ).scalar() or 0
+
     return {
         "projects": {
             "total": total_projects,
@@ -109,6 +132,16 @@ def get_dashboard_stats(db: Session = Depends(get_db)) -> dict:
             "completions_total": onboarding_completions_total,
             "starts_last_7d": onboarding_starts_7d,
             "completions_last_7d": onboarding_completions_7d
+        },
+        "user_journey": {
+            "total_users": total_users,
+            "storyline_completed": storyline_completed,
+            "slack_linked": slack_linked,
+            "idv_completed": idv_completed,
+            "hackatime_completed": hackatime_completed,
+            "onboarding_completed": onboarding_completed,
+            "has_projects": users_with_projects,
+            "has_shipped": users_with_shipped
         }
     }
 
@@ -200,6 +233,33 @@ def list_users(
         .all()
     )
 
+    def get_journey_step(user: User) -> dict:
+        steps = [
+            ("registered", True),
+            ("storyline", user.storyline_completed_at is not None),
+            ("slack", user.slack_linked_at is not None),
+            ("idv", user.idv_completed_at is not None),
+            ("hackatime", user.hackatime_completed_at is not None),
+            ("onboarding", user.onboarding_completed_at is not None),
+        ]
+        completed = sum(1 for _, done in steps if done)
+        current_step = "registered"
+        for step_name, done in steps:
+            if done:
+                current_step = step_name
+            else:
+                break
+        return {
+            "current_step": current_step,
+            "completed_count": completed,
+            "total_steps": len(steps),
+            "storyline": user.storyline_completed_at is not None,
+            "slack": user.slack_linked_at is not None,
+            "idv": user.idv_completed_at is not None,
+            "hackatime": user.hackatime_completed_at is not None,
+            "onboarding": user.onboarding_completed_at is not None,
+        }
+
     return [
         {
             "user_id": u.user_id,
@@ -207,7 +267,8 @@ def list_users(
             "email": u.email,
             "created_at": u.created_at.isoformat() if u.created_at else None,
             "onboarding_completed_at": u.onboarding_completed_at.isoformat() if u.onboarding_completed_at else None,
-            "project_count": project_counts.get(u.user_id, 0)
+            "project_count": project_counts.get(u.user_id, 0),
+            "journey": get_journey_step(u)
         }
         for u in users
     ]
@@ -296,3 +357,168 @@ def get_projects_with_anomalies(
         }
         for p in projects
     ]
+
+
+@router.get("/users/{user_id}")
+def get_user_detail(
+    user_id: str,
+    db: Session = Depends(get_db)
+) -> dict:
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Get user's projects with details
+    projects = db.query(Project).filter(Project.user_id == user_id).order_by(Project.created_at.desc()).all()
+    
+    # Calculate total hackatime hours across all projects
+    total_hours = sum(p.hackatime_hours or 0 for p in projects)
+    shipped_count = sum(1 for p in projects if p.shipped)
+    
+    # Get hackatime projects
+    hackatime_projects = db.query(HackatimeProject).filter(
+        HackatimeProject.user_id == user_id
+    ).order_by(HackatimeProject.seconds.desc()).all()
+    total_hackatime_seconds = sum(hp.seconds for hp in hackatime_projects)
+    
+    # Get login events (last 10)
+    login_events = db.query(UserLoginEvent).filter(
+        UserLoginEvent.user_id == user_id
+    ).order_by(UserLoginEvent.logged_in_at.desc()).limit(10).all()
+    
+    # Get votes cast by this user
+    votes_cast = db.query(func.count(Vote.vote_id)).filter(Vote.user_id == user_id).scalar() or 0
+    
+    # Get votes received on user's projects
+    votes_received = db.query(func.count(Vote.vote_id)).filter(
+        Vote.project_id.in_([p.project_id for p in projects])
+    ).scalar() or 0 if projects else 0
+    
+    # Get reviews received on user's projects
+    reviews_received = db.query(Review).filter(
+        Review.project_id.in_([p.project_id for p in projects])
+    ).all() if projects else []
+    
+    # Get onboarding events
+    onboarding_events = db.query(OnboardingEvent).filter(
+        OnboardingEvent.user_id == user_id
+    ).order_by(OnboardingEvent.created_at.desc()).all()
+    
+    # Get audit logs for this user
+    audit_logs = db.query(AuditLog).filter(
+        AuditLog.object_id == user_id,
+        AuditLog.object_type == "user"
+    ).order_by(AuditLog.created_at.desc()).limit(20).all()
+    
+    # Get user roles
+    roles = [ur.role.role_id for ur in user.roles] if user.roles else []
+    
+    # Get referral info
+    referred_users_count = db.query(func.count(User.user_id)).filter(
+        User.referred_by_user_id == user_id
+    ).scalar() or 0
+    
+    referrer = None
+    if user.referred_by_user_id:
+        ref_user = db.get(User, user.referred_by_user_id)
+        if ref_user:
+            referrer = {"user_id": ref_user.user_id, "handle": ref_user.handle}
+
+    # Build journey status
+    journey = {
+        "storyline": {"completed": user.storyline_completed_at is not None, "completed_at": user.storyline_completed_at.isoformat() if user.storyline_completed_at else None},
+        "slack": {"completed": user.slack_linked_at is not None, "completed_at": user.slack_linked_at.isoformat() if user.slack_linked_at else None},
+        "idv": {"completed": user.idv_completed_at is not None, "completed_at": user.idv_completed_at.isoformat() if user.idv_completed_at else None},
+        "hackatime": {"completed": user.hackatime_completed_at is not None, "completed_at": user.hackatime_completed_at.isoformat() if user.hackatime_completed_at else None},
+        "onboarding": {"completed": user.onboarding_completed_at is not None, "completed_at": user.onboarding_completed_at.isoformat() if user.onboarding_completed_at else None},
+    }
+
+    return {
+        "user": {
+            "user_id": user.user_id,
+            "email": user.email,
+            "handle": user.handle,
+            "slack_id": user.slack_id,
+            "phone_number": user.phone_number,
+            "referral_code": user.referral_code,
+            "identity_vault_id": user.identity_vault_id,
+            "idv_country": user.idv_country,
+            "verification_status": user.verification_status,
+            "ysws_eligible": user.ysws_eligible,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+            "updated_at": user.updated_at.isoformat() if user.updated_at else None,
+        },
+        "profile": {
+            "first_name": user.profile.first_name if user.profile else None,
+            "last_name": user.profile.last_name if user.profile else None,
+            "avatar_url": user.profile.avatar_url if user.profile else None,
+            "bio": user.profile.bio if user.profile else None,
+            "is_public": user.profile.is_public if user.profile else False,
+            "birthday": user.profile.birthday.isoformat() if user.profile and user.profile.birthday else None,
+        },
+        "journey": journey,
+        "roles": roles,
+        "stats": {
+            "total_projects": len(projects),
+            "shipped_projects": shipped_count,
+            "total_hours": total_hours,
+            "total_hackatime_seconds": total_hackatime_seconds,
+            "votes_cast": votes_cast,
+            "votes_received": votes_received,
+            "reviews_received": len(reviews_received),
+            "login_count": len(login_events),
+            "referred_users": referred_users_count,
+        },
+        "referrer": referrer,
+        "projects": [
+            {
+                "project_id": p.project_id,
+                "project_name": p.project_name,
+                "project_description": p.project_description[:200] + "..." if p.project_description and len(p.project_description) > 200 else p.project_description,
+                "project_type": p.project_type,
+                "submission_week": p.submission_week,
+                "shipped": p.shipped,
+                "hackatime_hours": p.hackatime_hours,
+                "review_status": p.review_status,
+                "code_url": p.code_url,
+                "live_url": p.live_url,
+                "created_at": p.created_at.isoformat() if p.created_at else None,
+            }
+            for p in projects
+        ],
+        "hackatime_projects": [
+            {
+                "id": hp.id,
+                "name": hp.name,
+                "seconds": hp.seconds,
+                "hours": round(hp.seconds / 3600, 2),
+                "updated_at": hp.updated_at.isoformat() if hp.updated_at else None,
+            }
+            for hp in hackatime_projects
+        ],
+        "recent_logins": [
+            {
+                "id": le.id,
+                "logged_in_at": le.logged_in_at.isoformat() if le.logged_in_at else None,
+            }
+            for le in login_events
+        ],
+        "onboarding_events": [
+            {
+                "id": oe.id,
+                "event": oe.event,
+                "slide": oe.slide,
+                "created_at": oe.created_at.isoformat() if oe.created_at else None,
+            }
+            for oe in onboarding_events[:10]
+        ],
+        "audit_logs": [
+            {
+                "id": al.id,
+                "action": al.action,
+                "details": al.details,
+                "created_at": al.created_at.isoformat() if al.created_at else None,
+            }
+            for al in audit_logs
+        ],
+    }
