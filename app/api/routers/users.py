@@ -367,6 +367,30 @@ def complete_onboarding(
     return _to_self_read(user)
 
 
+@router.get("/{user_id}/hours")
+def get_user_hours(
+    user_id: str,
+    x_user_id: str = Header(...),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Get total hours logged by user across all projects, returned in minutes"""
+    if x_user_id != user_id:
+        is_admin = crud.has_role(db, x_user_id, "admin")
+        if not is_admin:
+            raise HTTPException(status_code=403, detail="Can only view your own hours")
+    
+    user = crud.get_user(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    from app.models.project import Project
+    total_hours = db.query(func.coalesce(func.sum(Project.hackatime_hours), 0.0)).filter(
+        Project.user_id == user_id
+    ).scalar() or 0.0
+    
+    return {"minutes": int(total_hours * 60)}
+
+
 @router.post("/{user_id}/sync-handle-from-slack", response_model=UserSelfRead)
 def sync_handle_from_slack(
     user_id: str,
